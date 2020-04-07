@@ -11,6 +11,5 @@ func main() {
 	log.Println("Starting chainr-gate...")
 
 	// This makes the command wait indefinitely
-	for {
-	}
+	for {}
 }
