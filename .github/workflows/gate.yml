@@ -1,1 +1,30 @@
-../../gate/build/ci/ci.yml
+name: Gate
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2-beta
+      with:
+        go-version: '^1.14.1'
+    - name: Check go formatting
+      run: |
+        gofmt -d .
+        exit $([[ $(gofmt -d . | wc -l) -eq 0 ]])
+      working-directory: gate
+
+    - name: Build the executable
+      run: go build -o build/package/bin/gate
+      working-directory: gate
+
+    - name: Run unit tests
+      run: go test
+      working-directory: gate
