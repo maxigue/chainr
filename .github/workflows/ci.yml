@@ -12,16 +12,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Checks go formatting
+    - name: Check go formatting
       run: |
         gofmt -d .
         exit [[ $(gofmt -d . | wc -l) -eq 0 ]]
       working-directory: gate/src
 
-    - name: Builds the executable
+    - name: Build the executable
       run: go build
       working-directory: gate/src
 
-    - name: Runs unit tests
+    - name: Run unit tests
       run: go test
       working-directory: gate/src
