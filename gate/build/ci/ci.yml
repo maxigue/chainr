@@ -22,7 +22,7 @@ jobs:
       working-directory: gate
 
     - name: Build the executable
-      run: go build -o build/package/gate
+      run: go build -o build/package/bin/gate
       working-directory: gate
 
     - name: Run unit tests
