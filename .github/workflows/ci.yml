@@ -18,7 +18,7 @@ jobs:
     - name: Check go formatting
       run: |
         gofmt -d .
-        exit [[ $(gofmt -d . | wc -l) -eq 0 ]]
+        exit $([[ $(gofmt -d . | wc -l) -eq 0 ]])
       working-directory: gate/src
 
     - name: Build the executable
