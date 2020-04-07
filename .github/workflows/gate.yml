@@ -21,10 +21,6 @@ jobs:
         exit $([[ $(gofmt -d . | wc -l) -eq 0 ]])
       working-directory: gate
 
-    - name: Build the executable
-      run: go build -o build/package/bin/gate
-      working-directory: gate
-
     - name: Run unit tests
       run: go test
       working-directory: gate
