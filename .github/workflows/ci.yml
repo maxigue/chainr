@@ -19,12 +19,12 @@ jobs:
       run: |
         gofmt -d .
         exit $([[ $(gofmt -d . | wc -l) -eq 0 ]])
-      working-directory: gate/src
+      working-directory: gate
 
     - name: Build the executable
-      run: go build
-      working-directory: gate/src
+      run: go install
+      working-directory: gate
 
     - name: Run unit tests
       run: go test
-      working-directory: gate/src
+      working-directory: gate
