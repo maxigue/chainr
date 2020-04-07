@@ -1,4 +1,4 @@
-name: CI
+name: Gate
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
       working-directory: gate
 
     - name: Build the executable
-      run: go build
+      run: go build -o build/package/gate
       working-directory: gate
 
     - name: Run unit tests
