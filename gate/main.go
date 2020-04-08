@@ -6,7 +6,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"net/http"
 )
 
 func main() {
@@ -15,9 +17,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	log.Println("Port:", cfg.Port)
 
-	// This makes the command wait indefinitely
-	for {
-	}
+	addr := fmt.Sprintf(":%d", cfg.Port)
+	log.Println("Listening on", addr)
+	http.ListenAndServe(addr, nil)
 }
