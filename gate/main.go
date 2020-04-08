@@ -5,10 +5,19 @@
 // responses.
 package main
 
-import "log"
+import (
+	"fmt"
+	"log"
+)
 
 func main() {
 	log.Println("Starting gate...")
+
+	cfg, err := LoadConfig("config.yaml")
+	if (err != nil) {
+		log.Fatal(err.Error())
+	}
+	fmt.Println("Port:", cfg.Port)
 
 	// This makes the command wait indefinitely
 	for {

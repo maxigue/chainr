@@ -12,6 +12,7 @@ FROM alpine:latest
 WORKDIR /root
 
 COPY --from=builder /go/bin/gate .
+COPY --from=builder /go/src/config.yaml .
 
 EXPOSE 8080
 
