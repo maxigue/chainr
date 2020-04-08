@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"io/ioutil"
+	"log"
+)
 
-func TestMain(t *testing.T) {
+func init() {
+	log.SetOutput(ioutil.Discard)
 }

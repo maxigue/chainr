@@ -6,18 +6,16 @@
 package main
 
 import (
-	"fmt"
 	"log"
 )
 
 func main() {
-	log.Println("Starting gate...")
-
+	log.Println("Starting chainr gate")
 	cfg, err := LoadConfig("config.yaml")
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	fmt.Println("Port:", cfg.Port)
+	log.Println("Port:", cfg.Port)
 
 	// This makes the command wait indefinitely
 	for {
