@@ -8,6 +8,6 @@ func TestLoadConfig(t *testing.T) {
 		t.Error(err.Error())
 	}
 	if cfg.Port != 1234 {
-		t.Errorf("cfg.Port is %v, expected %v", cfg.Port, 1234)
+		t.Errorf("cfg.Port = %v, expected %v", cfg.Port, 1234)
 	}
 }
