@@ -35,8 +35,18 @@ spec:
             httpGet:
               path: /
               port: http
+          volumeMounts:
+            - name: config
+              mountPath: /root
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "chainr-gate.fullname" . }}
+            items:
+              - key: config.yaml
+                path: config.yaml
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

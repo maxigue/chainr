@@ -14,7 +14,7 @@ func main() {
 	log.Println("Starting gate...")
 
 	cfg, err := LoadConfig("config.yaml")
-	if (err != nil) {
+	if err != nil {
 		log.Fatal(err.Error())
 	}
 	fmt.Println("Port:", cfg.Port)
