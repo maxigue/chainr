@@ -12,8 +12,8 @@ The following use cases can be considered:
 - ...
 
 ## Concepts
-- *Pipeline*: A pipeline is the top-level unit, it contains jobs.
-- *Job*: A job is the execution unit. It starts a docker container on Kubernetes and runs commands inside.
+- **Pipeline**: A pipeline is the top-level unit, it contains jobs.
+- **Job**: A job is the execution unit. It starts a docker container on Kubernetes and runs commands inside.
 
 ## Example
 The following YAML is a representation of a basic pipeline, containing two jobs run in parallel. The first job triggers a different job in case of success or error.
