@@ -25,7 +25,8 @@ func main() {
 	log.Println("Starting chainr gate")
 	cfg, err := LoadConfig(configFile)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Println("Configuration loading failed:", err.Error())
+		log.Println("Using default configuration")
 	}
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
