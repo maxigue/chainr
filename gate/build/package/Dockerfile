@@ -9,10 +9,12 @@ RUN go install -v
 # Final container
 FROM alpine:latest
 
-WORKDIR /root
+WORKDIR /app
 
-COPY --from=builder /go/bin/gate .
-COPY --from=builder /go/src/config.yaml .
+COPY --from=builder /go/bin/gate /app
+COPY --from=builder /go/src/config.yaml /app/etc/config.yaml
+
+ENV CONFIG_FILE /app/etc/config.yaml
 
 EXPOSE 80
 

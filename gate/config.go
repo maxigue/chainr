@@ -1,10 +1,10 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
 
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
 )
 
 type Configuration struct {

@@ -9,16 +9,26 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 )
+
+var configFile string = "config.yaml"
+
+func init() {
+	val, ok := os.LookupEnv("CONFIG_FILE")
+	if ok {
+		configFile = val
+	}
+}
 
 func main() {
 	log.Println("Starting chainr gate")
-	cfg, err := LoadConfig("config.yaml")
+	cfg, err := LoadConfig(configFile)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Println("Listening on", addr)
-	http.ListenAndServe(addr, nil)
+	http.ListenAndServe(addr, NewHandler(cfg))
 }
