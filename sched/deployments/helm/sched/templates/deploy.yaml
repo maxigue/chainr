@@ -37,7 +37,7 @@ spec:
               port: http
           volumeMounts:
             - name: config
-              mountPath: /root/etc
+              mountPath: /app/etc
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
