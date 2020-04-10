@@ -1,4 +1,4 @@
-module github.com/Tyrame/chainr/gate
+module github.com/Tyrame/chainr/sched
 
 go 1.14
 

@@ -1,4 +1,4 @@
-name: Gate
+name: sched
 
 on:
   push:
@@ -19,8 +19,8 @@ jobs:
       run: |
         gofmt -d .
         exit $([[ $(gofmt -d . | wc -l) -eq 0 ]])
-      working-directory: gate
+      working-directory: sched
 
     - name: Run unit tests
       run: go test
-      working-directory: gate
+      working-directory: sched

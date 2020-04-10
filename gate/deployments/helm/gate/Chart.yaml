@@ -1,5 +1,0 @@
-apiVersion: v1
-appVersion: "1.0"
-description: Helm chart for chainr gate
-name: gate
-version: 1.0.0

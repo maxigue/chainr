@@ -1,8 +1,9 @@
-// Command gate starts the chainr API Gateway.
+// Command sched starts the chainr scheduler.
 //
-// The gate is the entry point of chainr cloud services. It provides a coherent
-// api on top of micro-services, and adds hypermedia informations on top of
-// responses.
+// The scheduler allows to run jobs on the Kubernetes cluster it is deployed on.
+// It manages the whole dependency tree, and checks all preconditions are met
+// before running a job.
+// It exposes an API allowing to run a pipeline, and get its execution status.
 package main
 
 import (
@@ -22,7 +23,7 @@ func init() {
 }
 
 func main() {
-	log.Println("Starting chainr gate")
+	log.Println("Starting chainr scheduler")
 	cfg, err := LoadConfig(configFile)
 	if err != nil {
 		log.Println("Configuration loading failed:", err.Error())

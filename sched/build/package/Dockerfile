@@ -11,11 +11,11 @@ FROM alpine:latest
 
 WORKDIR /app
 
-COPY --from=builder /go/bin/gate /app
+COPY --from=builder /go/bin/sched /app
 COPY --from=builder /go/src/config.yaml /app/etc/config.yaml
 
 ENV CONFIG_FILE /app/etc/config.yaml
 
 EXPOSE 80
 
-ENTRYPOINT ["./gate"]
+ENTRYPOINT ["./sched"]
