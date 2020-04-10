@@ -1,14 +1,14 @@
 package main
 
-import "net/http"
+import (
+	"net/http"
 
-type Handler struct {
-	cfg Configuration
-}
+	"github.com/Tyrame/chainr/sched/config"
+	"github.com/Tyrame/chainr/sched/pipeline"
+)
 
-func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-}
-
-func NewHandler(cfg Configuration) http.Handler {
-	return Handler{cfg}
+func NewHandler(cfg config.Configuration) http.Handler {
+	mux := http.NewServeMux()
+	mux.Handle("/pipeline/", pipeline.NewHandler(cfg))
+	return NewAccessLogger(mux)
 }

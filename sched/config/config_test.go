@@ -1,11 +1,11 @@
-package main
+package config
 
 import "testing"
 
-func TestLoadConfig(t *testing.T) {
-	cfg, err := LoadConfig("testdata/config.yaml")
+func TestLoad(t *testing.T) {
+	cfg, err := Load("testdata/config.yaml")
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
 	if cfg.Port != 1234 {
 		t.Errorf("cfg.Port = %v, expected %v", cfg.Port, 1234)
@@ -13,10 +13,10 @@ func TestLoadConfig(t *testing.T) {
 }
 
 // When an error occurs, the default values should be used.
-func TestLoadConfigNotExist(t *testing.T) {
-	cfg, err := LoadConfig("testdata/notexist.yaml")
+func TestLoadNotExist(t *testing.T) {
+	cfg, err := Load("testdata/notexist.yaml")
 	if err == nil {
-		t.Errorf("err = nil, expected not nil")
+		t.Fatal("err = nil, expected not nil")
 	}
 	if cfg.Port != 8080 {
 		t.Errorf("cfg.Port = %v, expected %v", cfg.Port, 8080)
@@ -24,10 +24,10 @@ func TestLoadConfigNotExist(t *testing.T) {
 }
 
 // Unset configuration entries should be set to their default value.
-func TestLoadConfigPartial(t *testing.T) {
-	cfg, err := LoadConfig("testdata/config_empty.yaml")
+func TestLoadPartial(t *testing.T) {
+	cfg, err := Load("testdata/config_empty.yaml")
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
 	if cfg.Port != 8080 {
 		t.Errorf("cfg.Port = %v, expected %v", cfg.Port, 8080)

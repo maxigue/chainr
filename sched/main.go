@@ -11,6 +11,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/Tyrame/chainr/sched/config"
 )
 
 var configFile string = "config.yaml"
@@ -24,7 +26,7 @@ func init() {
 
 func main() {
 	log.Println("Starting chainr scheduler")
-	cfg, err := LoadConfig(configFile)
+	cfg, err := config.Load(configFile)
 	if err != nil {
 		log.Println("Configuration loading failed:", err.Error())
 		log.Println("Using default configuration")
@@ -32,5 +34,7 @@ func main() {
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Println("Listening on", addr)
-	http.ListenAndServe(addr, NewHandler(cfg))
+	mux := http.NewServeMux()
+	mux.Handle("/", NewHandler(cfg))
+	log.Fatal(http.ListenAndServe(addr, mux))
 }
