@@ -13,8 +13,20 @@ func TestLoad(t *testing.T) {
 }
 
 // When an error occurs, the default values should be used.
+// Error cases are the following:
+// - The file does not exist or is not readable
+// - The file content is not in valid YAML format
 func TestLoadNotExist(t *testing.T) {
 	cfg, err := Load("testdata/notexist.yaml")
+	if err == nil {
+		t.Fatal("err = nil, expected not nil")
+	}
+	if cfg.Port != 8080 {
+		t.Errorf("cfg.Port = %v, expected %v", cfg.Port, 8080)
+	}
+}
+func TestLoadInvalidFormat(t *testing.T) {
+	cfg, err := Load("testdata/config_invalid.yaml")
 	if err == nil {
 		t.Fatal("err = nil, expected not nil")
 	}
