@@ -2,7 +2,7 @@
 Chains Kubernetes jobs and provides a monitoring interface.
 
 ## About this project
-This is only a pet project, whose initial ambition is only to help me learn golang. As such, it may contain clumsy code, and shortcuts in the design.
+This is only a pet project, whose initial ambition is only to help me learn golang. As such, it may contain clumsy code, shortcuts in the design and over-engineered parts.
 
 ## Use cases
 Chainr is a general purpose scheduler, allowing to run jobs on a Kubernetes cluster. It supports parallel executions and fallbacks.
