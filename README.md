@@ -20,18 +20,18 @@ The following YAML is a representation of a basic pipeline, containing two jobs 
 
 ```yaml
 jobs:
-  - name: first
+  first:
     image: busybox
     run: exit 0
-  - name: second
+  second:
     image: busybox
     run: exit 0
-  - name: success
+  success:
     dependsOn:
       - job: first
     image: busybox
     run: exit 0
-  - name: error
+  error:
     dependsOn:
       - job: first
         conditions:
