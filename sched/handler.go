@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Tyrame/chainr/sched/httputil"
-	"github.com/Tyrame/chainr/sched/run"
+	"github.com/Tyrame/chainr/sched/internal/httputil"
+	"github.com/Tyrame/chainr/sched/internal/run"
 )
 
 type apiResource struct {

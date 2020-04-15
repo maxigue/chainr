@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/Tyrame/chainr/sched/httputil"
+	"github.com/Tyrame/chainr/sched/internal/httputil"
 )
 
 func TestHandler(t *testing.T) {

@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Tyrame/chainr/sched/config"
+	"github.com/Tyrame/chainr/sched/internal/config"
 )
 
 var configFile string = "config.yaml"

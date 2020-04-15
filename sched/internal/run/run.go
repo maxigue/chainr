@@ -8,8 +8,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Tyrame/chainr/sched/httputil"
-	"github.com/Tyrame/chainr/sched/pipeline"
+	"github.com/Tyrame/chainr/sched/internal/httputil"
+	"github.com/Tyrame/chainr/sched/internal/pipeline"
 )
 
 type runHandler struct {
