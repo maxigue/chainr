@@ -32,9 +32,10 @@ func NewHandler() http.Handler {
 }
 
 func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	if r.Method != "GET" {
 		w.Header().Set("Allow", "GET")
-		http.Error(w, httputil.NewError(r, "Method not allowed").String(), http.StatusMethodNotAllowed)
+		httputil.WriteError(w, r, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -49,7 +50,7 @@ func (h *apiHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		http.Error(w, httputil.NewError(r, err.Error()).String(), http.StatusInternalServerError)
+		httputil.WriteError(w, r, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Write(bytes)

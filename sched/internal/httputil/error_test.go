@@ -5,6 +5,7 @@ import (
 
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 )
 
 func TestNewError(t *testing.T) {
@@ -43,5 +44,27 @@ func TestErrorString(t *testing.T) {
 	str := e.String()
 	if len(str) == 0 {
 		t.Error("len(str) = 0, expected > 0")
+	}
+}
+
+func TestWriteError(t *testing.T) {
+	w := httptest.NewRecorder()
+	r, err := http.NewRequest("GET", "/test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	WriteError(w, r, "testError", http.StatusBadRequest)
+	var resp ResponseBody
+	json.NewDecoder(w.Body).Decode(&resp)
+
+	contentType := w.Header().Get("Content-Type")
+	if contentType != "application/json" {
+		t.Errorf("contentType = %v, expected application/json", contentType)
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("w.Code = %v, expected %v", w.Code, http.StatusBadRequest)
+	}
+	if resp.Kind != "Error" {
+		t.Errorf("resp.Kind = %v, expected Error", resp.Kind)
 	}
 }

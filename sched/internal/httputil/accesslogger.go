@@ -5,6 +5,7 @@ import (
 	"net/http"
 )
 
+// AccessLogger logs each incoming request.
 type AccessLogger struct {
 	h http.Handler
 }

@@ -31,6 +31,10 @@ func TestHandler(t *testing.T) {
 					So(w.Code, ShouldEqual, 200)
 				})
 
+				Convey("The response should have the right Content-Type", func() {
+					So(w.Header().Get("Content-Type"), ShouldEqual, "application/json")
+				})
+
 				Convey("The response should contain APIResourceList", func() {
 					So(resp.Kind, ShouldEqual, "APIResourceList")
 				})
@@ -53,6 +57,10 @@ func TestHandler(t *testing.T) {
 
 				Convey("The response should have the Allow header", func() {
 					So(w.Header().Get("Allow"), ShouldEqual, "GET")
+				})
+
+				Convey("The response should have the right Content-Type", func() {
+					So(w.Header().Get("Content-Type"), ShouldEqual, "application/json")
 				})
 			})
 		})

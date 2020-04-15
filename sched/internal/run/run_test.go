@@ -4,9 +4,13 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+
+	"github.com/Tyrame/chainr/sched/internal/pipeline"
 )
 
 func TestRunHandler(t *testing.T) {
@@ -17,7 +21,23 @@ func TestRunHandler(t *testing.T) {
 			uri := "/api/runs"
 
 			Convey("When the data is a valid pipeline", func() {
+				pipeline := pipeline.Pipeline{}
+				b, err := json.Marshal(pipeline)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				r, err := http.NewRequest("POST", uri, bytes.NewReader(b))
+				if err != nil {
+					t.Fatal(err)
+				}
+				handler.ServeHTTP(w, r)
+
 				Convey("The request should succeed with code 202", nil)
+
+				Convey("The response should have the right Content-Type", func() {
+					So(w.Header().Get("Content-Type"), ShouldEqual, "application/json")
+				})
 			})
 
 			Convey("When there is no data", func() {
@@ -53,6 +73,10 @@ func TestRunHandler(t *testing.T) {
 
 				Convey("The response should have the Allow header", func() {
 					So(w.Header().Get("Allow"), ShouldEqual, "POST")
+				})
+
+				Convey("The response should have the right Content-Type", func() {
+					So(w.Header().Get("Content-Type"), ShouldEqual, "application/json")
 				})
 			})
 		})
