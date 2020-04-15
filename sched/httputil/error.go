@@ -6,7 +6,7 @@ import (
 )
 
 type Error struct {
-	ResponseBody
+	*ResponseBody
 	Error string `json:"error"`
 }
 
