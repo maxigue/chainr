@@ -19,6 +19,15 @@ func NewRunHandler(cfg config.Configuration) http.Handler {
 }
 
 func (h *RunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, httputil.NewError(r, "Method not allowed"), http.StatusMethodNotAllowed)
+		return
+	}
+
+	h.post(w, r)
+}
+
+func (h *RunHandler) post(w http.ResponseWriter, r *http.Request) {
 	var pipeline Pipeline
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
