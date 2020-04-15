@@ -49,7 +49,7 @@ func TestHandler(t *testing.T) {
 				}
 				handler.ServeHTTP(w, r)
 
-				Convey("The request should fail with 405", func() {
+				Convey("The request should fail with code 405", func() {
 					So(w.Code, ShouldEqual, 405)
 				})
 			})

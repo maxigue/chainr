@@ -48,8 +48,33 @@ func TestHandler(t *testing.T) {
 				}
 				handler.ServeHTTP(w, r)
 
-				Convey("The request should fail with 405", func() {
+				Convey("The request should fail with code 405", func() {
 					So(w.Code, ShouldEqual, 405)
+				})
+			})
+		})
+	})
+
+	Convey("Scenario: resource not found", t, func() {
+		Convey("Given a resource is requested", func() {
+			w := httptest.NewRecorder()
+			handler := http.Handler(NewHandler(config.Configuration{}))
+
+			Convey("When the resource is not found", func() {
+				r, err := http.NewRequest("GET", "/notexisting", nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				handler.ServeHTTP(w, r)
+				var resp httputil.ResponseBody
+				json.NewDecoder(w.Body).Decode(&resp)
+
+				Convey("The request should fail with code 404", func() {
+					So(w.Code, ShouldEqual, 404)
+				})
+
+				Convey("The response should contain an Error", func() {
+					So(resp.Kind, ShouldEqual, "Error")
 				})
 			})
 		})

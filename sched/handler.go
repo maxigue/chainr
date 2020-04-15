@@ -29,6 +29,9 @@ func NewHandler(cfg config.Configuration) http.Handler {
 		mux.Handle("/api/"+res.Resource+"/", res.Handler)
 	}
 	mux.Handle("/api", &apiHandler{apiResources})
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, httputil.NewError(r, "Resource not found"), http.StatusNotFound)
+	})
 	return httputil.NewAccessLogger(mux)
 }
 
