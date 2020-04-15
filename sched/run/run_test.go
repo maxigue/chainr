@@ -1,4 +1,4 @@
-package pipeline
+package run
 
 import (
 	. "github.com/smartystreets/goconvey/convey"
@@ -7,16 +7,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-
-	"github.com/Tyrame/chainr/sched/config"
 )
 
 func TestRunHandler(t *testing.T) {
 	Convey("Scenario: run a pipeline", t, func() {
 		Convey("Given a pipeline is run", func() {
 			w := httptest.NewRecorder()
-			handler := http.Handler(NewRunHandler(config.Configuration{}))
-			uri := "/api/pipeline/run"
+			handler := http.Handler(NewHandler())
+			uri := "/api/runs"
 
 			Convey("When the data is a valid pipeline", func() {
 				Convey("The request should succeed with code 202", nil)

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/Tyrame/chainr/sched/config"
 	"github.com/Tyrame/chainr/sched/httputil"
 )
 
@@ -16,7 +15,7 @@ func TestHandler(t *testing.T) {
 	Convey("Scenario: get API resources", t, func() {
 		Convey("Given API resources are requested", func() {
 			w := httptest.NewRecorder()
-			handler := http.Handler(NewHandler(config.Configuration{}))
+			handler := http.Handler(NewHandler())
 			uri := "/api"
 
 			Convey("When the method is GET", func() {
@@ -32,12 +31,12 @@ func TestHandler(t *testing.T) {
 					So(w.Code, ShouldEqual, 200)
 				})
 
-				Convey("The response should contain APIResources", func() {
-					So(resp.Kind, ShouldEqual, "APIResources")
+				Convey("The response should contain APIResourceList", func() {
+					So(resp.Kind, ShouldEqual, "APIResourceList")
 				})
 
 				Convey("The response should contain links to resources", func() {
-					So(resp.Links, ShouldContainKey, "pipeline")
+					So(resp.Links, ShouldContainKey, "runs")
 				})
 			})
 
@@ -58,7 +57,7 @@ func TestHandler(t *testing.T) {
 	Convey("Scenario: resource not found", t, func() {
 		Convey("Given a resource is requested", func() {
 			w := httptest.NewRecorder()
-			handler := http.Handler(NewHandler(config.Configuration{}))
+			handler := http.Handler(NewHandler())
 
 			Convey("When the resource is not found", func() {
 				r, err := http.NewRequest("GET", "/notexisting", nil)

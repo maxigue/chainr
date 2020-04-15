@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Tyrame/chainr/sched/config"
 	"github.com/Tyrame/chainr/sched/httputil"
-	"github.com/Tyrame/chainr/sched/pipeline"
+	"github.com/Tyrame/chainr/sched/run"
 )
 
 type apiResource struct {
@@ -19,19 +18,16 @@ type apiHandler struct {
 	resources []apiResource
 }
 
-func NewHandler(cfg config.Configuration) http.Handler {
-	mux := http.NewServeMux()
+func NewHandler() http.Handler {
+	mux := httputil.NewServeMux()
 	apiResources := []apiResource{
-		apiResource{"pipeline", "Interact with pipelines", pipeline.NewHandler(cfg)},
+		apiResource{"runs", "Interact with runs", run.NewHandler()},
 	}
 	for _, res := range apiResources {
 		mux.Handle("/api/"+res.Resource, res.Handler)
 		mux.Handle("/api/"+res.Resource+"/", res.Handler)
 	}
 	mux.Handle("/api", &apiHandler{apiResources})
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, httputil.NewError(r, "Resource not found").String(), http.StatusNotFound)
-	})
 	return httputil.NewAccessLogger(mux)
 }
 
@@ -45,7 +41,7 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *apiHandler) get(w http.ResponseWriter, r *http.Request) {
-	resp := httputil.NewResponseBody(r, "APIResources")
+	resp := httputil.NewResponseBody(r, "APIResourceList")
 	for _, res := range h.resources {
 		resp.Links[res.Resource] = httputil.NewResponseLink(r, "/api/"+res.Resource, res.Description)
 	}

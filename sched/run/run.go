@@ -1,4 +1,6 @@
-package pipeline
+// Package run contains the representation of a run,
+// along with HTTP handlers.
+package run
 
 import (
 	"encoding/json"
@@ -6,19 +8,20 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Tyrame/chainr/sched/config"
 	"github.com/Tyrame/chainr/sched/httputil"
+	"github.com/Tyrame/chainr/sched/pipeline"
 )
 
-type RunHandler struct {
-	cfg config.Configuration
+type runHandler struct {
 }
 
-func NewRunHandler(cfg config.Configuration) http.Handler {
-	return &RunHandler{cfg}
+func NewHandler() http.Handler {
+	mux := httputil.NewServeMux()
+	mux.Handle("/api/runs", &runHandler{})
+	return mux
 }
 
-func (h *RunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *runHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, httputil.NewError(r, "Method not allowed").String(), http.StatusMethodNotAllowed)
 		return
@@ -27,8 +30,8 @@ func (h *RunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.post(w, r)
 }
 
-func (h *RunHandler) post(w http.ResponseWriter, r *http.Request) {
-	var pipeline Pipeline
+func (h *runHandler) post(w http.ResponseWriter, r *http.Request) {
+	var pipeline pipeline.Pipeline
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, httputil.NewError(r, err.Error()).String(), http.StatusInternalServerError)

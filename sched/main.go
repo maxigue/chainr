@@ -34,7 +34,5 @@ func main() {
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Println("Listening on", addr)
-	mux := http.NewServeMux()
-	mux.Handle("/", NewHandler(cfg))
-	log.Fatal(http.ListenAndServe(addr, mux))
+	log.Fatal(http.ListenAndServe(addr, NewHandler()))
 }
