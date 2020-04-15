@@ -14,7 +14,7 @@ func TestNewError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	marshaledErr := []byte(NewError(r, "testError"))
+	marshaledErr := NewError(r, "testError").Bytes()
 
 	var errJSON Error
 	err = json.Unmarshal(marshaledErr, &errJSON)

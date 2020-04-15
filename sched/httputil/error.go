@@ -10,13 +10,21 @@ type Error struct {
 	Error string `json:"error"`
 }
 
-func NewError(r *http.Request, e string) string {
-	var errStruct Error
-	errStruct.ResponseBody = NewResponseBody(r, "Error")
-	errStruct.Error = e
-	bytes, err := json.Marshal(errStruct)
+func NewError(r *http.Request, err string) *Error {
+	e := new(Error)
+	e.ResponseBody = NewResponseBody(r, "Error")
+	e.Error = err
+	return e
+}
+
+func (e *Error) Bytes() []byte {
+	bytes, err := json.Marshal(e)
 	if err != nil {
-		return "{}"
+		return []byte("{}")
 	}
-	return string(bytes)
+	return bytes
+}
+
+func (e *Error) String() string {
+	return string(e.Bytes())
 }

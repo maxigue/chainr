@@ -20,7 +20,7 @@ func NewRunHandler(cfg config.Configuration) http.Handler {
 
 func (h *RunHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
-		http.Error(w, httputil.NewError(r, "Method not allowed"), http.StatusMethodNotAllowed)
+		http.Error(w, httputil.NewError(r, "Method not allowed").String(), http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -31,7 +31,7 @@ func (h *RunHandler) post(w http.ResponseWriter, r *http.Request) {
 	var pipeline Pipeline
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, httputil.NewError(r, err.Error()), http.StatusInternalServerError)
+		http.Error(w, httputil.NewError(r, err.Error()).String(), http.StatusInternalServerError)
 		return
 	}
 
@@ -39,7 +39,7 @@ func (h *RunHandler) post(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("Unable to decode request body:", err.Error())
 		log.Println("Body:", string(body))
-		http.Error(w, httputil.NewError(r, err.Error()), http.StatusBadRequest)
+		http.Error(w, httputil.NewError(r, err.Error()).String(), http.StatusBadRequest)
 		return
 	}
 	log.Println(pipeline)

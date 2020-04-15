@@ -42,7 +42,7 @@ func NewHandler(cfg config.Configuration) http.Handler {
 
 func (h *pipelineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
-		http.Error(w, httputil.NewError(r, "Method not allowed"), http.StatusMethodNotAllowed)
+		http.Error(w, httputil.NewError(r, "Method not allowed").String(), http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -55,7 +55,7 @@ func (h *pipelineHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		http.Error(w, httputil.NewError(r, err.Error()), http.StatusInternalServerError)
+		http.Error(w, httputil.NewError(r, err.Error()).String(), http.StatusInternalServerError)
 		return
 	}
 	w.Write(bytes)

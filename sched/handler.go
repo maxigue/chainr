@@ -30,14 +30,14 @@ func NewHandler(cfg config.Configuration) http.Handler {
 	}
 	mux.Handle("/api", &apiHandler{apiResources})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, httputil.NewError(r, "Resource not found"), http.StatusNotFound)
+		http.Error(w, httputil.NewError(r, "Resource not found").String(), http.StatusNotFound)
 	})
 	return httputil.NewAccessLogger(mux)
 }
 
 func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
-		http.Error(w, httputil.NewError(r, "Method not allowed"), http.StatusMethodNotAllowed)
+		http.Error(w, httputil.NewError(r, "Method not allowed").String(), http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -52,7 +52,7 @@ func (h *apiHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := json.Marshal(resp)
 	if err != nil {
-		http.Error(w, httputil.NewError(r, err.Error()), http.StatusInternalServerError)
+		http.Error(w, httputil.NewError(r, err.Error()).String(), http.StatusInternalServerError)
 		return
 	}
 	w.Write(bytes)
