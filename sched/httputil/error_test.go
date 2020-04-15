@@ -32,3 +32,17 @@ func TestNewError(t *testing.T) {
 		t.Errorf("errJSON.Links[self].URL = %v, expected %v", errJSON.Links["test"].URL, "localhost/test")
 	}
 }
+
+func TestErrorString(t *testing.T) {
+	r, err := http.NewRequest("GET", "/test", nil)
+	r.Host = "localhost"
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e := NewError(r, "testError")
+	str := e.String()
+	if len(str) == 0 {
+		t.Error("len(str) = 0, expected > 0")
+	}
+}
