@@ -10,7 +10,7 @@ import (
 type DummyHandler struct{}
 
 func (h DummyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header()["Test-Ok"] = append(w.Header()["Test-Ok"], "Ok")
+	w.Header().Add("Test-Ok", "Ok")
 }
 
 func TestAccessLogger(t *testing.T) {
@@ -26,7 +26,7 @@ func TestAccessLogger(t *testing.T) {
 	if len(w.Header()) != 1 {
 		t.Fatalf("len(w.Header()) = %v, expected 1", len(w.Header()))
 	}
-	if w.Header()["Test-Ok"][0] != "Ok" {
-		t.Errorf("w.Header()[Test-Ok][0] = %v, expected Ok", w.Header()["Test-Ok"][0])
+	if w.Header().Get("Test-Ok") != "Ok" {
+		t.Errorf("w.Header().Get(Test-Ok) = %v, expected Ok", w.Header().Get("Test-Ok"))
 	}
 }
