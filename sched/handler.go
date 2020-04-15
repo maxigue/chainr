@@ -33,6 +33,7 @@ func NewHandler() http.Handler {
 
 func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
+		w.Header().Set("Allow", "GET")
 		http.Error(w, httputil.NewError(r, "Method not allowed").String(), http.StatusMethodNotAllowed)
 		return
 	}

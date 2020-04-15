@@ -50,6 +50,10 @@ func TestHandler(t *testing.T) {
 				Convey("The request should fail with code 405", func() {
 					So(w.Code, ShouldEqual, 405)
 				})
+
+				Convey("The response should have the Allow header", func() {
+					So(w.Header().Get("Allow"), ShouldEqual, "GET")
+				})
 			})
 		})
 	})
