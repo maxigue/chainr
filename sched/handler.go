@@ -43,7 +43,7 @@ func (h *apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *apiHandler) get(w http.ResponseWriter, r *http.Request) {
 	resp := httputil.NewResponseBody(r, "APIResourceList")
 	for _, res := range h.resources {
-		resp.Links[res.Resource] = httputil.NewResponseLink(r, "/api/"+res.Resource, res.Description)
+		resp.Links[res.Resource] = httputil.NewResponseLink("/api/"+res.Resource, res.Description)
 	}
 
 	bytes, err := json.Marshal(resp)

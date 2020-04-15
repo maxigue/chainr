@@ -7,8 +7,8 @@ import (
 )
 
 func TestNewResponseBody(t *testing.T) {
-	r, err := http.NewRequest("GET", "/test", nil)
-	r.Host = "localhost"
+	uri := "/test"
+	r, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,8 +22,8 @@ func TestNewResponseBody(t *testing.T) {
 	}
 
 	selfLink := rb.Links["self"]
-	if selfLink.URL != "localhost/test" {
-		t.Errorf("selfLink.URL = %v, expected %v", selfLink.URL, "localhost/test")
+	if selfLink.URL != uri {
+		t.Errorf("selfLink.URL = %v, expected %v", selfLink.URL, uri)
 	}
 	dfltDesc := "Link to the current resource"
 	if selfLink.Description != dfltDesc {

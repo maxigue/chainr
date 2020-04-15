@@ -18,11 +18,10 @@ func NewResponseBody(r *http.Request, kind string) *ResponseBody {
 		Links: make(map[string]*ResponseLink),
 	}
 
-	rb.Links["self"] = NewResponseLink(r, r.URL.RequestURI(), "Link to the current resource")
+	rb.Links["self"] = NewResponseLink(r.URL.RequestURI(), "Link to the current resource")
 	return &rb
 }
 
-func NewResponseLink(r *http.Request, uri string, desc string) *ResponseLink {
-	url := r.Host + uri
-	return &ResponseLink{url, desc}
+func NewResponseLink(uri string, desc string) *ResponseLink {
+	return &ResponseLink{uri, desc}
 }

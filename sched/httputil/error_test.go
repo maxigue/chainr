@@ -8,8 +8,8 @@ import (
 )
 
 func TestNewError(t *testing.T) {
-	r, err := http.NewRequest("GET", "/test", nil)
-	r.Host = "localhost"
+	uri := "/test"
+	r, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,14 +28,13 @@ func TestNewError(t *testing.T) {
 	if errJSON.Error != "testError" {
 		t.Errorf("errJSON.Error = %v, expected %v", errJSON.Error, "testError")
 	}
-	if errJSON.Links["self"].URL != "localhost/test" {
-		t.Errorf("errJSON.Links[self].URL = %v, expected %v", errJSON.Links["test"].URL, "localhost/test")
+	if errJSON.Links["self"].URL != uri {
+		t.Errorf("errJSON.Links[self].URL = %v, expected %v", errJSON.Links["test"].URL, uri)
 	}
 }
 
 func TestErrorString(t *testing.T) {
 	r, err := http.NewRequest("GET", "/test", nil)
-	r.Host = "localhost"
 	if err != nil {
 		t.Fatal(err)
 	}
