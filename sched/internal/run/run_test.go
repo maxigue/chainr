@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/Tyrame/chainr/sched/internal/httputil"
 	"github.com/Tyrame/chainr/sched/internal/pipeline"
 )
 
@@ -21,7 +22,7 @@ func TestRunHandler(t *testing.T) {
 			uri := "/api/runs"
 
 			Convey("When the data is a valid pipeline", func() {
-				pipeline := pipeline.Pipeline{}
+				pipeline := pipeline.New()
 				b, err := json.Marshal(pipeline)
 				if err != nil {
 					t.Fatal(err)
@@ -32,11 +33,19 @@ func TestRunHandler(t *testing.T) {
 					t.Fatal(err)
 				}
 				handler.ServeHTTP(w, r)
+				var resp httputil.ResponseBody
+				json.NewDecoder(w.Body).Decode(&resp)
 
-				Convey("The request should succeed with code 202", nil)
+				Convey("The request should succeed with code 202", func() {
+					So(w.Code, ShouldEqual, 202)
+				})
 
 				Convey("The response should have the right Content-Type", func() {
 					So(w.Header().Get("Content-Type"), ShouldEqual, "application/json")
+				})
+
+				Convey("The response should be of kind Run", func() {
+					So(resp.Kind, ShouldEqual, "Run")
 				})
 			})
 
