@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/Tyrame/chainr/sched/internal/httputil"
@@ -48,10 +47,5 @@ func (h *apiHandler) get(w http.ResponseWriter, r *http.Request) {
 		resp.Links[res.Resource] = httputil.NewResponseLink("/api/"+res.Resource, res.Description)
 	}
 
-	bytes, err := json.Marshal(resp)
-	if err != nil {
-		httputil.WriteError(w, r, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Write(bytes)
+	httputil.WriteResponse(w, r, resp)
 }

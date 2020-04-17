@@ -20,6 +20,7 @@ The following use cases can be considered:
 The following YAML is a representation of a basic pipeline, containing two jobs run in parallel. The first job triggers a different job in case of success or error.
 
 ```yaml
+kind: Pipeline
 jobs:
   first:
     image: busybox

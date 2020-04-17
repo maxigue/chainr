@@ -35,7 +35,7 @@ func TestHandler(t *testing.T) {
 					So(w.Header().Get("Content-Type"), ShouldEqual, "application/json")
 				})
 
-				Convey("The response should contain APIResourceList", func() {
+				Convey("The response should be of kind APIResourceList", func() {
 					So(resp.Kind, ShouldEqual, "APIResourceList")
 				})
 
@@ -84,7 +84,7 @@ func TestHandler(t *testing.T) {
 					So(w.Code, ShouldEqual, 404)
 				})
 
-				Convey("The response should contain an Error", func() {
+				Convey("The response should be of kind Error", func() {
 					So(resp.Kind, ShouldEqual, "Error")
 				})
 			})
