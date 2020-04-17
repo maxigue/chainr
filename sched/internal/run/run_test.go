@@ -40,7 +40,7 @@ func TestRunHandler(t *testing.T) {
 					So(w.Code, ShouldEqual, 202)
 				})
 
-				Convey("The response should have the right Content-Type", func() {
+				Convey("The response should have the Content-Type application/json", func() {
 					So(w.Header().Get("Content-Type"), ShouldEqual, "application/json")
 				})
 
@@ -84,7 +84,7 @@ func TestRunHandler(t *testing.T) {
 					So(w.Header().Get("Allow"), ShouldEqual, "POST")
 				})
 
-				Convey("The response should have the right Content-Type", func() {
+				Convey("The response should have the Content-Type application/json", func() {
 					So(w.Header().Get("Content-Type"), ShouldEqual, "application/json")
 				})
 			})
