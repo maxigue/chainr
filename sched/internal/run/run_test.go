@@ -61,8 +61,41 @@ func TestRunHandler(t *testing.T) {
 				})
 			})
 
-			Convey("When the data is has an invalid format", func() {
+			Convey("When the data has an invalid format", func() {
+				body := `{wrongformat}`
+				r, err := http.NewRequest("POST", uri, strings.NewReader(body))
+				if err != nil {
+					t.Fatal(err)
+				}
+				handler.ServeHTTP(w, r)
+
+				Convey("The request should fail with code 400", func() {
+					So(w.Code, ShouldEqual, 400)
+				})
+			})
+
+			Convey("When the data is a Pipeline, but does not meet the Pipeline schema", func() {
+				body := `{"kind": "Pipeline"}`
+				r, err := http.NewRequest("POST", uri, strings.NewReader(body))
+				if err != nil {
+					t.Fatal(err)
+				}
+				handler.ServeHTTP(w, r)
+
 				Convey("The request should fail with code 400", nil)
+			})
+
+			Convey("When the data has an unsupported kind", func() {
+				body := `{"kind": "Notexisting"}`
+				r, err := http.NewRequest("POST", uri, strings.NewReader(body))
+				if err != nil {
+					t.Fatal(err)
+				}
+				handler.ServeHTTP(w, r)
+
+				Convey("The request should fail with code 422", func() {
+					So(w.Code, ShouldEqual, 422)
+				})
 			})
 
 			Convey("When the data has an invalid dependency tree", func() {
