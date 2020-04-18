@@ -82,7 +82,9 @@ func TestRunHandler(t *testing.T) {
 				}
 				handler.ServeHTTP(w, r)
 
-				Convey("The request should fail with code 400", nil)
+				Convey("The request should fail with code 400", func() {
+					So(w.Code, ShouldEqual, 400)
+				})
 			})
 
 			Convey("When the data has an unsupported kind", func() {

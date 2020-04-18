@@ -3,12 +3,20 @@ package run
 import (
 	"testing"
 
+	"encoding/json"
 	"net/http"
+
+	"github.com/Tyrame/chainr/sched/internal/pipeline"
 )
 
 func TestNewRunner(t *testing.T) {
-	body := `{"kind": "Pipeline"}`
-	_, err := newRunner([]byte(body))
+	p := pipeline.New()
+	b, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = newRunner(b)
 	if err != nil {
 		t.Errorf("newRunner on a valid pipeline returned nil")
 	}
