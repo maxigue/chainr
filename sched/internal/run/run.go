@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Tyrame/chainr/sched/internal/httputil"
+	"github.com/Tyrame/chainr/sched/internal/pipeline"
 )
 
 type Run struct {
@@ -55,36 +56,13 @@ func (h *runHandler) post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: this is over-engineered, because only pipelines can be run.
-	// It would be better to improve pipeline.newFromSpec() to manage PipelineLinks.
-	// It would make the PipelineLink kind a part of the pipeline package.
-	// It would also remove the need of an error with status.
-	// This would give:
-	//     p, err := pipeline.NewFromSpec(body)
-	//     if err != nil {
-	//         httputil.WriteError(w, r, err.Error(), http.StatusBadRequest)
-	//         return
-	//     }
-	//     if err := p.Validate(); err != nil {
-	//         httputil.WriteError(w, r, err.Error(), http.StatusUnprocessableEntity)
-	//         return
-	//     }
-	//     runner := newRunner(p)
-	//
-	// Note that with this approach, there is no longer a need for a runner, because
-	// the run part can be part of the Pipeline itself.
-	// Instead of:
-	//     runner := newRunner(p)
-	//     go runner.Run()
-	// We can do:
-	//     go p.Run()
-	runner, errws := newRunner(body)
-	if errws != nil {
-		httputil.WriteError(w, r, errws.Error(), errws.Status())
+	p, err := pipeline.NewFromSpec(body)
+	if err != nil {
+		httputil.WriteError(w, r, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	go runner.Run()
+	go p.Run()
 
 	run := NewRun()
 	resp := httputil.NewResponseBody(r, "Run")

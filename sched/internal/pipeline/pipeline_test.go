@@ -1,10 +1,6 @@
 package pipeline
 
-import (
-	"testing"
-
-	"net/http"
-)
+import "testing"
 
 func TestNew(t *testing.T) {
 	p := New()
@@ -42,9 +38,6 @@ func TestNewFromSpecBadFormat(t *testing.T) {
 	if err == nil {
 		t.Fatal("NewFromSpec from an invalid format returned a nil error")
 	}
-	if err.Status() != http.StatusBadRequest {
-		t.Errorf("err.Status() = %v, expected %v", err.Status(), http.StatusBadRequest)
-	}
 }
 
 func TestNewFromSpecBadSchema(t *testing.T) {
@@ -56,15 +49,4 @@ func TestNewFromSpecBadSchema(t *testing.T) {
 	if err == nil {
 		t.Fatal("NewFromSpec from an invalid schema returned a nil error")
 	}
-	if err.Status() != http.StatusBadRequest {
-		t.Errorf("err.Status() = %v, expected %v", err.Status(), http.StatusBadRequest)
-	}
-}
-
-func TestNewFromSpecBadDeps(t *testing.T) {
-	// TODO: implement
-}
-
-func TestValidate(t *testing.T) {
-	// TODO: implement
 }

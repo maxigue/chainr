@@ -5,7 +5,7 @@ package pipeline
 import (
 	"encoding/json"
 	"errors"
-	"net/http"
+	"log"
 	"strings"
 
 	"github.com/qri-io/jsonschema"
@@ -111,12 +111,11 @@ func New() *Pipeline {
 }
 
 // Creates a pipeline from a JSON spec given as an array of bytes.
-// If the pipeline is invalid (either because the format is invalid, or the
-// pipeline validation fails), an error is returned.
-func NewFromSpec(spec []byte) (*Pipeline, httputil.ErrorWithStatus) {
+// If the spec has an invalid format, an error is returned.
+func NewFromSpec(spec []byte) (*Pipeline, error) {
 	var p Pipeline
 	if err := json.Unmarshal(spec, &p); err != nil {
-		return nil, httputil.NewErrorWithStatus(err, http.StatusBadRequest)
+		return nil, err
 	}
 
 	if errs, _ := schema.ValidateBytes(spec); len(errs) > 0 {
@@ -124,20 +123,15 @@ func NewFromSpec(spec []byte) (*Pipeline, httputil.ErrorWithStatus) {
 		for _, e := range errs {
 			arr = append(arr, e.Error())
 		}
-		err := errors.New(strings.Join(arr, ", "))
-		return nil, httputil.NewErrorWithStatus(err, http.StatusBadRequest)
-	}
-
-	if err := p.Validate(); err != nil {
-		return nil, httputil.NewErrorWithStatus(err, http.StatusUnprocessableEntity)
+		return nil, errors.New(strings.Join(arr, ", "))
 	}
 
 	return &p, nil
 }
 
-// Validates the dependency tree.
-// Returns an error describing the problem or nil.
-func (p *Pipeline) Validate() error {
-	// TODO: implement
-	return nil
+// Runs the pipeline.
+// This method can take a long time, so it should be called
+// in a goroutine.
+func (p *Pipeline) Run() {
+	log.Println("Pipeline.Run()")
 }

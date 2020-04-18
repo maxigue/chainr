@@ -100,10 +100,6 @@ func TestRunHandler(t *testing.T) {
 				})
 			})
 
-			Convey("When the data has an invalid dependency tree", func() {
-				Convey("The request should fail with code 422", nil)
-			})
-
 			Convey("When the method is not POST", func() {
 				r, err := http.NewRequest("GET", uri, strings.NewReader(""))
 				if err != nil {
