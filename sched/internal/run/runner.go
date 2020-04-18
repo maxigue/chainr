@@ -35,7 +35,7 @@ func newRunner(body []byte) (runner runner, error httputil.ErrorWithStatus) {
 		if kindable.Kind == kind {
 			runner, errws := factory(body)
 			if errws != nil {
-				return nil, httputil.NewErrorWithStatus(err, errws.Status())
+				return nil, errws
 			}
 			return runner, nil
 		}
