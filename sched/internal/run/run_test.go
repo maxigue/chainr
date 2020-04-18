@@ -93,8 +93,8 @@ func TestRunHandler(t *testing.T) {
 				}
 				handler.ServeHTTP(w, r)
 
-				Convey("The request should fail with code 422", func() {
-					So(w.Code, ShouldEqual, 422)
+				Convey("The request should fail with code 400", func() {
+					So(w.Code, ShouldEqual, 400)
 				})
 			})
 

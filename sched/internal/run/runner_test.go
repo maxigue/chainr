@@ -30,7 +30,7 @@ func TestNewRunnerBadKind(t *testing.T) {
 	if err == nil {
 		t.Fatal("newRunner on an invalid kind returned a nil error")
 	}
-	if err.Status() != http.StatusUnprocessableEntity {
-		t.Errorf("err.Status() = %v, expected %v", err.Status(), http.StatusUnprocessableEntity)
+	if err.Status() != http.StatusBadRequest {
+		t.Errorf("err.Status() = %v, expected %v", err.Status(), http.StatusBadRequest)
 	}
 }

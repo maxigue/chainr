@@ -42,5 +42,5 @@ func newRunner(body []byte) (runner runner, error httputil.ErrorWithStatus) {
 	}
 
 	err = errors.New("invalid kind " + kindable.Kind + ", expected " + strings.Join(kinds, ", "))
-	return nil, httputil.NewErrorWithStatus(err, http.StatusUnprocessableEntity)
+	return nil, httputil.NewErrorWithStatus(err, http.StatusBadRequest)
 }
