@@ -30,3 +30,6 @@ func TestNewPipelineRunnerBadFormat(t *testing.T) {
 		t.Errorf("err.Status() = %v, expected %v", err.Status(), http.StatusBadRequest)
 	}
 }
+
+func TestRun(t *testing.T) {
+}

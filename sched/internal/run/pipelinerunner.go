@@ -11,14 +11,14 @@ type pipelineRunner struct {
 	Pipeline *pipeline.Pipeline
 }
 
-func (r *pipelineRunner) Run() {
-	log.Println("PipelineRunner.Run()", r.Pipeline)
-}
-
 func newPipelineRunner(spec []byte) (runner, httputil.ErrorWithStatus) {
 	p, errws := pipeline.NewFromSpec(spec)
 	if errws != nil {
 		return nil, errws
 	}
 	return &pipelineRunner{p}, nil
+}
+
+func (r *pipelineRunner) Run() {
+	log.Println("PipelineRunner.Run()", r.Pipeline)
 }
