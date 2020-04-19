@@ -11,6 +11,7 @@ import (
 	"github.com/qri-io/jsonschema"
 
 	"github.com/Tyrame/chainr/sched/internal/httputil"
+	"github.com/Tyrame/chainr/sched/internal/k8s"
 )
 
 type Pipeline struct {
@@ -132,6 +133,6 @@ func NewFromSpec(spec []byte) (*Pipeline, error) {
 // Runs the pipeline.
 // This method can take a long time, so it should be called
 // in a goroutine.
-func (p *Pipeline) Run() {
-	log.Println("Pipeline.Run()")
+func (p *Pipeline) Run(k8s k8s.Client) {
+	log.Println("Pipeline.Run()", k8s)
 }

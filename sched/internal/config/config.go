@@ -11,11 +11,13 @@ import (
 )
 
 type Configuration struct {
-	Port int
+	Port       int
+	Kubeconfig string
 }
 
 var dfltConfig Configuration = Configuration{
-	Port: 8080,
+	Port:       8080,
+	Kubeconfig: "",
 }
 
 // Load returns the configuration structure, constructed from the

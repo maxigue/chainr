@@ -13,6 +13,7 @@ import (
 	"os"
 
 	"github.com/Tyrame/chainr/sched/internal/config"
+	"github.com/Tyrame/chainr/sched/internal/k8s"
 )
 
 var configFile string = "config.yaml"
@@ -32,7 +33,12 @@ func main() {
 		log.Println("Using default configuration")
 	}
 
+	k8s, err := k8s.New(cfg.Kubeconfig)
+	if err != nil {
+		panic(err.Error())
+	}
+
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Println("Listening on", addr)
-	log.Fatal(http.ListenAndServe(addr, NewHandler()))
+	log.Fatal(http.ListenAndServe(addr, NewHandler(k8s)))
 }

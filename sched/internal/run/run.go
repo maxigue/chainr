@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Tyrame/chainr/sched/internal/httputil"
+	"github.com/Tyrame/chainr/sched/internal/k8s"
 	"github.com/Tyrame/chainr/sched/internal/pipeline"
 )
 
@@ -30,11 +31,12 @@ func NewRun() *Run {
 }
 
 type runHandler struct {
+	k8s k8s.Client
 }
 
-func NewHandler() http.Handler {
+func NewHandler(k8s k8s.Client) http.Handler {
 	mux := httputil.NewServeMux()
-	mux.Handle("/api/runs", &runHandler{})
+	mux.Handle("/api/runs", &runHandler{k8s})
 	return mux
 }
 
@@ -62,7 +64,7 @@ func (h *runHandler) post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go p.Run()
+	go p.Run(h.k8s)
 
 	run := NewRun()
 	resp := httputil.NewResponseBody(r, "Run")

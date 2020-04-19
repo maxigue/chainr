@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Tyrame/chainr/sched/internal/httputil"
+	"github.com/Tyrame/chainr/sched/internal/k8s"
 	"github.com/Tyrame/chainr/sched/internal/pipeline"
 )
 
@@ -18,7 +19,7 @@ func TestRunHandler(t *testing.T) {
 	Convey("Scenario: run a pipeline", t, func() {
 		Convey("Given a pipeline is run", func() {
 			w := httptest.NewRecorder()
-			handler := http.Handler(NewHandler())
+			handler := http.Handler(NewHandler(k8s.NewStub()))
 			uri := "/api/runs"
 
 			Convey("When the data is a valid pipeline", func() {
