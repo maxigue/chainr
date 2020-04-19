@@ -114,17 +114,17 @@ func New() *Pipeline {
 // Creates a pipeline from a JSON spec given as an array of bytes.
 // If the spec has an invalid format, an error is returned.
 func NewFromSpec(spec []byte) (*Pipeline, error) {
-	var p Pipeline
-	if err := json.Unmarshal(spec, &p); err != nil {
-		return nil, err
-	}
-
 	if errs, _ := schema.ValidateBytes(spec); len(errs) > 0 {
 		arr := make([]string, 0, len(errs))
 		for _, e := range errs {
 			arr = append(arr, e.Error())
 		}
 		return nil, errors.New(strings.Join(arr, ", "))
+	}
+
+	var p Pipeline
+	if err := json.Unmarshal(spec, &p); err != nil {
+		return nil, err
 	}
 
 	return &p, nil
