@@ -61,8 +61,8 @@ var jobSchema = `{
 }`
 
 type JobDependency struct {
-	Job        string                `json:"job"`
-	Conditions []ConditionDependency `json:"conditions"`
+	Job        string                  `json:"job"`
+	Conditions JobDependencyConditions `json:"conditions"`
 }
 
 var jobDependencySchema = `{
@@ -71,20 +71,17 @@ var jobDependencySchema = `{
 		"job": {
 			"type": "string"
 		},
-		"conditions": {
-			"type": "array",
-			"items": ` + conditionDependencySchema + `
-		}
+		"conditions": ` + jobDependencyConditionsSchema + `
 	},
 	"additionalProperties": false,
 	"required": ["job"]
 }`
 
-type ConditionDependency struct {
+type JobDependencyConditions struct {
 	Failure bool `json:"failure"`
 }
 
-var conditionDependencySchema = `{
+var jobDependencyConditionsSchema = `{
 	"type": "object",
 	"properties": {
 		"failure": {
