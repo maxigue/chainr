@@ -16,11 +16,7 @@ jobs:
       with:
         go-version: '^1.14.1'
     - name: Check go formatting
-      run: |
-        gofmt -d .
-        exit $([[ $(gofmt -d . | wc -l) -eq 0 ]])
-      working-directory: sched
+      run: make check-fmt
 
     - name: Run unit tests
-      run: go test ./...
-      working-directory: sched
+      run: make test
