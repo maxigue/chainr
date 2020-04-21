@@ -41,3 +41,18 @@ jobs:
     image: busybox
     run: exit 0
 ```
+
+## Architecture
+This project is architectured in micro-services.
+- **gate**: Used as a gateway to all micro-services.
+- **sched**: Allows to schedule pipeline runs and get run status.
+- **work**: Worker running pipeline jobs on the kubernetes cluster.
+- **notif**: Supports notification medias, and triggers notifications when events occur.
+- **ui**: Serves the UI.
+
+Message passing and transient persistence is done through redis.
+
+## More documentation
+More documentation can be found in the `docs/` directory.
+- [Architecture](docs/architecture.md)
+- [Redis](docs/redis.md)
