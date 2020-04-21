@@ -122,3 +122,10 @@ func TestRunHandler(t *testing.T) {
 		})
 	})
 }
+
+func TestNew(t *testing.T) {
+	r := New()
+	if r.Kind != "Run" {
+		t.Errorf("r.Kind = %v, expected Run", r.Kind)
+	}
+}

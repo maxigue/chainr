@@ -5,7 +5,6 @@ package pipeline
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"strings"
 
 	"github.com/qri-io/jsonschema"
@@ -129,6 +128,9 @@ func NewFromSpec(spec []byte) (*Pipeline, error) {
 // Runs the pipeline.
 // This method can take a long time, so it should be called
 // in a goroutine.
-func (p *Pipeline) Run() {
-	log.Println("Pipeline.Run()")
+func (p *Pipeline) Run(runUID string) error {
+	for _, job := range p.Jobs {
+		_ = job
+	}
+	return nil
 }

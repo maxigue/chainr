@@ -12,10 +12,7 @@ FROM alpine:latest
 WORKDIR /app
 
 COPY --from=builder /go/bin/sched /app
-COPY --from=builder /go/src/config.yaml /app/etc/config.yaml
 
-ENV CONFIG_FILE /app/etc/config.yaml
-
-EXPOSE 80
+EXPOSE 8080
 
 ENTRYPOINT ["./sched"]

@@ -21,8 +21,9 @@ type RunMetadata struct {
 	UID uuid.UUID `json:"uid"`
 }
 
-func NewRun() *Run {
+func New() *Run {
 	return &Run{
+		Kindable: httputil.Kindable{"Run"},
 		Metadata: RunMetadata{
 			UID: uuid.New(),
 		},
@@ -62,9 +63,12 @@ func (h *runHandler) post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go p.Run()
+	run := New()
+	if err := p.Run(run.Metadata.UID.String()); err != nil {
+		httputil.WriteError(w, r, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	run := NewRun()
 	resp := httputil.NewResponseBody(r, "Run")
 	resp.Metadata = run.Metadata
 	delete(resp.Links, "self") // TODO: links are not implemented yet
