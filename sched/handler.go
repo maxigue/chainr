@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/Tyrame/chainr/sched/internal/httputil"
-	"github.com/Tyrame/chainr/sched/internal/k8s"
 	"github.com/Tyrame/chainr/sched/internal/run"
 )
 
@@ -18,10 +17,10 @@ type apiHandler struct {
 	resources []apiResource
 }
 
-func NewHandler(k8s k8s.Client) http.Handler {
+func NewHandler() http.Handler {
 	mux := httputil.NewServeMux()
 	apiResources := []apiResource{
-		apiResource{"runs", "Interact with runs", run.NewHandler(k8s)},
+		apiResource{"runs", "Interact with runs", run.NewHandler()},
 	}
 	for _, res := range apiResources {
 		mux.Handle("/api/"+res.Resource, res.Handler)

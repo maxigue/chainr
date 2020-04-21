@@ -9,14 +9,13 @@ import (
 	"net/http/httptest"
 
 	"github.com/Tyrame/chainr/sched/internal/httputil"
-	"github.com/Tyrame/chainr/sched/internal/k8s"
 )
 
 func TestHandler(t *testing.T) {
 	Convey("Scenario: get API resources", t, func() {
 		Convey("Given API resources are requested", func() {
 			w := httptest.NewRecorder()
-			handler := http.Handler(NewHandler(k8s.NewStub()))
+			handler := http.Handler(NewHandler())
 			uri := "/api"
 
 			Convey("When the method is GET", func() {
@@ -70,7 +69,7 @@ func TestHandler(t *testing.T) {
 	Convey("Scenario: resource not found", t, func() {
 		Convey("Given a resource is requested", func() {
 			w := httptest.NewRecorder()
-			handler := http.Handler(NewHandler(k8s.NewStub()))
+			handler := http.Handler(NewHandler())
 
 			Convey("When the resource is not found", func() {
 				r, err := http.NewRequest("GET", "/notexisting", nil)

@@ -1,6 +1,2 @@
 # port is the port the server runs on.
 port: 8080
-
-# kubeconfig is the path to the kubeconfig file.
-# If empty, use the in-cluster configuration.
-kubeconfig: ""
