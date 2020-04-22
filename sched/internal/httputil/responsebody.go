@@ -8,7 +8,7 @@ import (
 // This structure represents a body that can be returned as a response.
 // TODO: This design is poor, and the concept of Kind must be improved.
 type ResponseBody struct {
-	Kindable
+	Kind     string                   `json:"kind"`
 	Metadata interface{}              `json:"metadata,omitempty"`
 	Links    map[string]*ResponseLink `json:"links"`
 }
@@ -19,9 +19,10 @@ type ResponseLink struct {
 }
 
 func NewResponseBody(r *http.Request, kind string) *ResponseBody {
-	rb := ResponseBody{}
-	rb.Kindable = Kindable{kind}
-	rb.Links = make(map[string]*ResponseLink)
+	rb := ResponseBody{
+		Kind:  kind,
+		Links: make(map[string]*ResponseLink),
+	}
 
 	rb.Links["self"] = NewResponseLink(r.URL.RequestURI(), "Link to the current resource")
 	return &rb

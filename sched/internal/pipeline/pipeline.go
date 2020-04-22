@@ -11,8 +11,6 @@ import (
 
 	"github.com/go-redis/redis/v7"
 	"github.com/qri-io/jsonschema"
-
-	"github.com/Tyrame/chainr/sched/internal/httputil"
 )
 
 type Pipeline interface {
@@ -20,7 +18,7 @@ type Pipeline interface {
 }
 
 type pipeline struct {
-	httputil.Kindable
+	Kind string         `json:"kind"`
 	Jobs map[string]Job `json:"jobs"`
 }
 
@@ -142,8 +140,8 @@ func initRedisClient() {
 // Creates a pipeline with the minimal valid configuration.
 func New() Pipeline {
 	return &pipeline{
-		Kindable: httputil.Kindable{"Pipeline"},
-		Jobs:     make(map[string]Job),
+		Kind: "Pipeline",
+		Jobs: make(map[string]Job),
 	}
 }
 

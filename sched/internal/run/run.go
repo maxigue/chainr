@@ -14,7 +14,7 @@ import (
 )
 
 type Run struct {
-	httputil.Kindable
+	Kind     string      `json:"kind"`
 	Metadata RunMetadata `json:"metadata"`
 }
 
@@ -24,7 +24,7 @@ type RunMetadata struct {
 
 func New() *Run {
 	return &Run{
-		Kindable: httputil.Kindable{"Run"},
+		Kind: "Run",
 		Metadata: RunMetadata{
 			UID: uuid.New(),
 		},
