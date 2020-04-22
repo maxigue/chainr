@@ -4,8 +4,8 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 
-	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,6 +13,24 @@ import (
 	"github.com/Tyrame/chainr/sched/internal/httputil"
 	"github.com/Tyrame/chainr/sched/internal/pipeline"
 )
+
+type validPipeline struct{}
+
+func (p *validPipeline) Run(string) error {
+	return nil
+}
+func newValidPipeline() pipeline.Pipeline {
+	return &validPipeline{}
+}
+
+type invalidPipeline struct{}
+
+func (p *invalidPipeline) Run(string) error {
+	return errors.New("fail")
+}
+func newInvalidPipeline() pipeline.Pipeline {
+	return &invalidPipeline{}
+}
 
 func TestRunHandler(t *testing.T) {
 	Convey("Scenario: run a pipeline", t, func() {
@@ -22,30 +40,43 @@ func TestRunHandler(t *testing.T) {
 			uri := "/api/runs"
 
 			Convey("When the data is a valid pipeline", func() {
-				pipeline := pipeline.New()
-				b, err := json.Marshal(pipeline)
+				r, err := http.NewRequest("POST", uri, strings.NewReader(""))
 				if err != nil {
 					t.Fatal(err)
 				}
-
-				r, err := http.NewRequest("POST", uri, bytes.NewReader(b))
-				if err != nil {
-					t.Fatal(err)
+				old := newPipeline
+				newPipeline = func(spec []byte) (pipeline.Pipeline, error) {
+					return newValidPipeline(), nil
 				}
-				handler.ServeHTTP(w, r)
-				var resp httputil.ResponseBody
-				json.NewDecoder(w.Body).Decode(&resp)
+				defer func() {
+					newPipeline = old
+				}()
 
 				Convey("The request should succeed with code 202", func() {
+					handler.ServeHTTP(w, r)
 					So(w.Code, ShouldEqual, 202)
 				})
 
 				Convey("The response should have the Content-Type application/json", func() {
+					handler.ServeHTTP(w, r)
 					So(w.Header().Get("Content-Type"), ShouldEqual, "application/json")
 				})
 
 				Convey("The response should be of kind Run", func() {
+					handler.ServeHTTP(w, r)
+					var resp httputil.ResponseBody
+					json.NewDecoder(w.Body).Decode(&resp)
 					So(resp.Kind, ShouldEqual, "Run")
+				})
+
+				Convey("And the pipeline run fails", func() {
+					newPipeline = func(spec []byte) (pipeline.Pipeline, error) {
+						return newInvalidPipeline(), nil
+					}
+					handler.ServeHTTP(w, r)
+					Convey("The request should fail with code 500", func() {
+						So(w.Code, ShouldEqual, 500)
+					})
 				})
 			})
 

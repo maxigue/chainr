@@ -1,18 +1,25 @@
 // Package pipeline contains the code handling pipelines, including HTTP
-// handlers and the whole pipeline representation and execution.
+// handlers and the whole pipeline representation and scheduling.
 package pipeline
 
 import (
 	"encoding/json"
 	"errors"
+	"os"
+	"strconv"
 	"strings"
 
+	"github.com/go-redis/redis/v7"
 	"github.com/qri-io/jsonschema"
 
 	"github.com/Tyrame/chainr/sched/internal/httputil"
 )
 
-type Pipeline struct {
+type Pipeline interface {
+	Run(runUID string) error
+}
+
+type pipeline struct {
 	httputil.Kindable
 	Jobs map[string]Job `json:"jobs"`
 }
@@ -89,18 +96,52 @@ var jobDependencyConditionsSchema = `{
 	"additionalProperties": false
 }`
 
+// Initialize the JSON schema and the redis client.
+func init() {
+	initJSONSchema()
+	initRedisClient()
+}
+
 var schema = &jsonschema.RootSchema{}
 
-// Initialize the JSON schema.
-func init() {
+func initJSONSchema() {
 	if err := json.Unmarshal([]byte(pipelineSchema), schema); err != nil {
 		panic("unmarshal pipeline schema: " + err.Error())
 	}
 }
 
+var redisClient redis.Cmdable = nil
+
+const pendingJobsChannel = "work:jobs"
+
+func initRedisClient() {
+	addr := "redis:6379"
+	password := ""
+	db := 0
+	if val, ok := os.LookupEnv("REDIS_ADDR"); ok {
+		addr = val
+	}
+	if val, ok := os.LookupEnv("REDIS_PASSWORD"); ok {
+		password = val
+	}
+	if val, ok := os.LookupEnv("REDIS_DB"); ok {
+		d, err := strconv.Atoi(val)
+		if err != nil {
+			panic("evaluate redis db: " + err.Error())
+		}
+		db = d
+	}
+
+	redisClient = redis.NewClient(&redis.Options{
+		Addr:     addr,
+		Password: password,
+		DB:       db,
+	})
+}
+
 // Creates a pipeline with the minimal valid configuration.
-func New() *Pipeline {
-	return &Pipeline{
+func New() Pipeline {
+	return &pipeline{
 		Kindable: httputil.Kindable{"Pipeline"},
 		Jobs:     make(map[string]Job),
 	}
@@ -108,7 +149,7 @@ func New() *Pipeline {
 
 // Creates a pipeline from a JSON spec given as an array of bytes.
 // If the spec has an invalid format, an error is returned.
-func NewFromSpec(spec []byte) (*Pipeline, error) {
+func NewFromSpec(spec []byte) (Pipeline, error) {
 	if errs, _ := schema.ValidateBytes(spec); len(errs) > 0 {
 		arr := make([]string, 0, len(errs))
 		for _, e := range errs {
@@ -117,7 +158,7 @@ func NewFromSpec(spec []byte) (*Pipeline, error) {
 		return nil, errors.New(strings.Join(arr, ", "))
 	}
 
-	var p Pipeline
+	var p pipeline
 	if err := json.Unmarshal(spec, &p); err != nil {
 		return nil, err
 	}
@@ -125,12 +166,44 @@ func NewFromSpec(spec []byte) (*Pipeline, error) {
 	return &p, nil
 }
 
-// Runs the pipeline.
-// This method can take a long time, so it should be called
-// in a goroutine.
-func (p *Pipeline) Run(runUID string) error {
-	for _, job := range p.Jobs {
-		_ = job
+// The Run method schedules the pipeline for workers.
+// It adds the run key in redis, and keys for each job and their dependencies.
+// It also adds the jobs to the job queue.
+func (p *pipeline) Run(runUID string) error {
+	runKey := makeRunKey(runUID)
+	if err := redisClient.Set(runKey, "0", 0).Err(); err != nil {
+		return err
+	}
+	for k, v := range p.Jobs {
+		jobKey := makeJobKey(runUID, k)
+		if err := redisClient.HSet(jobKey, "image", v.Image, "run", v.Run).Err(); err != nil {
+			return err
+		}
+		for _, dep := range v.DependsOn {
+			depKey := makeJobDependencyKey(runUID, k, dep.Job)
+			failure := "false"
+			if dep.Conditions.Failure {
+				failure = "true"
+			}
+			if err := redisClient.HSet(depKey, "failure", failure).Err(); err != nil {
+				return err
+			}
+		}
+		if err := redisClient.LPush(pendingJobsChannel, jobKey).Err(); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func makeRunKey(runUID string) string {
+	return "run:" + runUID
+}
+
+func makeJobKey(runUID string, jobName string) string {
+	return "job:" + jobName + ":run:" + runUID
+}
+
+func makeJobDependencyKey(runUID string, jobName string, depName string) string {
+	return "dependency:" + depName + ":job:" + jobName + ":run:" + runUID
 }

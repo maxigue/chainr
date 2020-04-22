@@ -4,6 +4,7 @@ package run
 
 import (
 	"io/ioutil"
+	"log"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -50,6 +51,12 @@ func (h *runHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.post(w, r)
 }
 
+// This variable is here to be overridden by unit tests,
+// to stub pipeline run and simulate errors.
+var newPipeline = func(spec []byte) (pipeline.Pipeline, error) {
+	return pipeline.NewFromSpec(spec)
+}
+
 func (h *runHandler) post(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -57,7 +64,7 @@ func (h *runHandler) post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := pipeline.NewFromSpec(body)
+	p, err := newPipeline(body)
 	if err != nil {
 		httputil.WriteError(w, r, err.Error(), http.StatusBadRequest)
 		return
@@ -65,6 +72,7 @@ func (h *runHandler) post(w http.ResponseWriter, r *http.Request) {
 
 	run := New()
 	if err := p.Run(run.Metadata.UID.String()); err != nil {
+		log.Println("Pipeline run failed:", err.Error())
 		httputil.WriteError(w, r, err.Error(), http.StatusInternalServerError)
 		return
 	}

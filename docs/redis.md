@@ -5,12 +5,12 @@ This documentation explains the redis structure.
 Redis is used for message passing and transient storage. It contains jobs specs and status, and channels for jobs events.
 
 ## Keys
-- **run:\<uid\>:job:\<name\>**: Hash containing the job's spec and status. A new key is created for each job. The run uid is set as a prefix to allow searchs by run. The hash contains the following fields:
+- **job:\<name\>:run:\<uid\>**: Hash containing the job's spec and status. A new key is created for each job. The run uid is set as a suffix to allow searchs by run. The hash contains the following fields:
 ```
 image: string: The docker image to use
 run: string: The command to run
 ```
-- **run:\<uid\>:job:\<name\>:dependency:\<dep\>**: Hash containing a single dependency for a job. `dep` is the jame of the dependency job. The hash contains the following fields:
+- **dependency:\<dep\>:job:\<name\>:run:\<uid\>**: Hash containing a single dependency for a job. `dep` is the jame of the dependency job. The hash contains the following fields:
 ```
 failure: true|false: If set to true, the job will only be run if the dependency fails. If set to false, the job will only be run if the dependency succeeds.
 ```
@@ -18,4 +18,4 @@ failure: true|false: If set to true, the job will only be run if the dependency 
 - **notif:jobs:events**: List containing events on jobs, formatted as `run:<uid>:job<name>:event:<event>`. This list is consumed by notifiers.
 
 ## PubSub
-- **run:\<uid\>:job:\<name\>:status**: Channel passing the completion status of a job, formatted as `<status>`. This channel is consumed by workers, in the dependency resolution.
+- **status:job:\<name\>:run:\<uid\>**: Channel passing the completion status of a job, formatted as `<status>`. This channel is consumed by workers, in the dependency resolution.
