@@ -44,7 +44,7 @@ func (h *runHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method != "POST" {
 		w.Header().Set("Allow", "POST")
-		httputil.WriteError(w, r, "Method not allowed", http.StatusMethodNotAllowed)
+		httputil.WriteError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -60,28 +60,23 @@ var newPipeline = func(spec []byte) (pipeline.Pipeline, error) {
 func (h *runHandler) post(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		httputil.WriteError(w, r, err.Error(), http.StatusInternalServerError)
+		httputil.WriteError(w, err, http.StatusInternalServerError)
 		return
 	}
 
 	p, err := newPipeline(body)
 	if err != nil {
-		httputil.WriteError(w, r, err.Error(), http.StatusBadRequest)
+		httputil.WriteError(w, err, http.StatusBadRequest)
 		return
 	}
 
 	run := New()
 	if err := p.Run(run.Metadata.UID.String()); err != nil {
 		log.Println("Pipeline run failed:", err.Error())
-		httputil.WriteError(w, r, err.Error(), http.StatusInternalServerError)
+		httputil.WriteError(w, err, http.StatusInternalServerError)
 		return
 	}
 
-	resp := httputil.NewResponseBody(r, "Run")
-	resp.Metadata = run.Metadata
-	delete(resp.Links, "self") // TODO: links are not implemented yet
-	// resp.Links["self"].URL = "/api/runs/" + run.UID.String()
-	// resp.Links["status"].URL = "/api/runs/" + run.UID.String() + "/status"
-	w.WriteHeader(http.StatusAccepted)
-	httputil.WriteResponse(w, r, resp)
+	// resp.Metadata.selfLink = "/api/runs/" + run.UID.String()
+	httputil.WriteResponse(w, run, http.StatusAccepted)
 }

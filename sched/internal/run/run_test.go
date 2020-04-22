@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/Tyrame/chainr/sched/internal/httputil"
 	"github.com/Tyrame/chainr/sched/internal/pipeline"
 )
 
@@ -64,9 +63,9 @@ func TestRunHandler(t *testing.T) {
 
 				Convey("The response should be of kind Run", func() {
 					handler.ServeHTTP(w, r)
-					var resp httputil.ResponseBody
-					json.NewDecoder(w.Body).Decode(&resp)
-					So(resp.Kind, ShouldEqual, "Run")
+					var run Run
+					json.NewDecoder(w.Body).Decode(&run)
+					So(run.Kind, ShouldEqual, "Run")
 				})
 
 				Convey("And the pipeline run fails", func() {

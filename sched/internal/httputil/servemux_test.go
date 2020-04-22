@@ -19,13 +19,13 @@ func TestNewServeMux(t *testing.T) {
 	handler, _ := mux.Handler(r)
 
 	handler.ServeHTTP(w, r)
-	var resp ResponseBody
-	json.NewDecoder(w.Body).Decode(&resp)
+	var error Error
+	json.NewDecoder(w.Body).Decode(&error)
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("w.Code = %v, expected %v", w.Code, http.StatusNotFound)
 	}
-	if resp.Kind != "Error" {
-		t.Errorf("resp.Kind = %v, expected Error", resp.Kind)
+	if error.Kind != "Error" {
+		t.Errorf("error.Kind = %v, expected Error", error.Kind)
 	}
 }

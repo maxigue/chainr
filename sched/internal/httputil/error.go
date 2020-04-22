@@ -1,40 +1,30 @@
 package httputil
 
-import (
-	"encoding/json"
-	"net/http"
-)
+import "net/http"
 
 // Error represents the body returned in case of error.
 type Error struct {
-	*ResponseBody
+	Kind  string `json:"kind"`
 	Error string `json:"error"`
 }
 
-func NewError(r *http.Request, err string) *Error {
-	e := new(Error)
-	e.ResponseBody = NewResponseBody(r, "Error")
-	e.Error = err
-	return e
-}
-
-func (e *Error) Bytes() []byte {
-	bytes, err := json.Marshal(e)
-	if err != nil {
-		return []byte("{}")
+func NewError(err string) Error {
+	return Error{
+		Kind:  "Error",
+		Error: err,
 	}
-	return bytes
 }
 
-func (e *Error) String() string {
-	return string(e.Bytes())
-}
+// Writes an error json containing the error string.
+// It supports errors in format error and string.
+func WriteError(w http.ResponseWriter, err interface{}, code int) {
+	var str string
+	switch e := err.(type) {
+	case string:
+		str = e
+	case error:
+		str = e.Error()
+	}
 
-// Writes an error json containing the error string, and the links.
-// Also sets the response headers.
-func WriteError(w http.ResponseWriter, r *http.Request, err string, code int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	e := NewError(r, err)
-	w.Write(e.Bytes())
+	WriteResponse(w, NewError(str), code)
 }

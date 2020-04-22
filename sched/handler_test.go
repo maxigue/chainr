@@ -24,8 +24,8 @@ func TestHandler(t *testing.T) {
 					t.Fatal(err)
 				}
 				handler.ServeHTTP(w, r)
-				var resp httputil.ResponseBody
-				json.NewDecoder(w.Body).Decode(&resp)
+				var list apiResourceList
+				json.NewDecoder(w.Body).Decode(&list)
 
 				Convey("The request should succeed with 200", func() {
 					So(w.Code, ShouldEqual, 200)
@@ -36,11 +36,15 @@ func TestHandler(t *testing.T) {
 				})
 
 				Convey("The response should be of kind APIResourceList", func() {
-					So(resp.Kind, ShouldEqual, "APIResourceList")
+					So(list.Kind, ShouldEqual, "APIResourceList")
 				})
 
-				Convey("The response should contain links to resources", func() {
-					So(resp.Links, ShouldContainKey, "runs")
+				Convey("The response should have a link to itself", func() {
+					So(list.Metadata.SelfLink, ShouldEqual, "/api")
+				})
+
+				Convey("The response should contain resources", func() {
+					So(list.Resources, ShouldContainKey, "runs")
 				})
 			})
 
@@ -77,15 +81,15 @@ func TestHandler(t *testing.T) {
 					t.Fatal(err)
 				}
 				handler.ServeHTTP(w, r)
-				var resp httputil.ResponseBody
-				json.NewDecoder(w.Body).Decode(&resp)
+				var error httputil.Error
+				json.NewDecoder(w.Body).Decode(&error)
 
 				Convey("The request should fail with code 404", func() {
 					So(w.Code, ShouldEqual, 404)
 				})
 
 				Convey("The response should be of kind Error", func() {
-					So(resp.Kind, ShouldEqual, "Error")
+					So(error.Kind, ShouldEqual, "Error")
 				})
 			})
 		})
