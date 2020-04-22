@@ -170,29 +170,53 @@ func NewFromSpec(spec []byte) (Pipeline, error) {
 // It adds the run key in redis, and keys for each job and their dependencies.
 // It also adds the jobs to the job queue.
 func (p *pipeline) Run(runUID string) error {
-	runKey := makeRunKey(runUID)
-	if err := redisClient.Set(runKey, "0", 0).Err(); err != nil {
+	if err := p.scheduleRun(runUID); err != nil {
 		return err
 	}
+	if err := p.scheduleJobs(runUID); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *pipeline) scheduleRun(runUID string) error {
+	runKey := makeRunKey(runUID)
+	return redisClient.Set(runKey, "0", 0).Err()
+}
+
+func (p *pipeline) scheduleJobs(runUID string) error {
 	for k, v := range p.Jobs {
 		jobKey := makeJobKey(runUID, k)
-		if err := redisClient.HSet(jobKey, "image", v.Image, "run", v.Run).Err(); err != nil {
+		fields := []interface{}{
+			"image", v.Image,
+			"run", v.Run,
+			"status", "PENDING",
+		}
+		if err := redisClient.HSet(jobKey, fields...).Err(); err != nil {
 			return err
 		}
-		for _, dep := range v.DependsOn {
-			depKey := makeJobDependencyKey(runUID, k, dep.Job)
-			failure := "false"
-			if dep.Conditions.Failure {
-				failure = "true"
-			}
-			if err := redisClient.HSet(depKey, "failure", failure).Err(); err != nil {
-				return err
-			}
+		if err := p.scheduleDependencies(runUID, k, v); err != nil {
+			return err
 		}
 		if err := redisClient.LPush(pendingJobsChannel, jobKey).Err(); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func (p *pipeline) scheduleDependencies(runUID string, jobName string, job Job) error {
+	for _, dep := range job.DependsOn {
+		depKey := makeJobDependencyKey(runUID, jobName, dep.Job)
+		failure := "false"
+		if dep.Conditions.Failure {
+			failure = "true"
+		}
+		if err := redisClient.HSet(depKey, "failure", failure).Err(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

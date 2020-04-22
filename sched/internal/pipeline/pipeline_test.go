@@ -190,9 +190,9 @@ func (c *redisClientMock) HSet(key string, values ...interface{}) *redis.IntCmd 
 		expectedValues := []string{}
 		switch c.expectHSetK[i] {
 		case "job:job1:run:abc":
-			expectedValues = []string{"image", "busybox", "run", "exit 0"}
+			expectedValues = []string{"image", "busybox", "run", "exit 0", "status", "PENDING"}
 		case "job:job2:run:abc":
-			expectedValues = []string{"image", "busybox", "run", "exit 1"}
+			expectedValues = []string{"image", "busybox", "run", "exit 1", "status", "PENDING"}
 		case "dependency:job1:job:job2:run:abc":
 			expectedValues = []string{"failure", "true"}
 		case "dependency:job42:job:job2:run:abc":
