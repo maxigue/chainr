@@ -31,9 +31,90 @@ func newInvalidPipeline() pipeline.Pipeline {
 	return &invalidPipeline{}
 }
 
-func TestRunHandler(t *testing.T) {
+func TestRunHandlerList(t *testing.T) {
+	Convey("Scenario: list runs", t, func() {
+		Convey("Given the runs list is requested", func() {
+			w := httptest.NewRecorder()
+			r, err := http.NewRequest("GET", "/api/runs", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			handler := http.Handler(NewHandler())
+
+			Convey("When there are runs", func() {
+				handler.ServeHTTP(w, r)
+				var runList RunList
+				json.NewDecoder(w.Body).Decode(&runList)
+
+				Convey("The response should succeed with code 200", func() {
+					So(w.Code, ShouldEqual, 200)
+				})
+
+				Convey("The response should be of kind RunList", func() {
+					So(runList.Kind, ShouldEqual, "RunList")
+				})
+
+				Convey("The response should have items", nil)
+
+				Convey("Response items should have a global status", nil)
+
+				Convey("Response items should have a status for each job", nil)
+			})
+			Convey("When there are no runs", func() {
+				handler.ServeHTTP(w, r)
+				var runList RunList
+				json.NewDecoder(w.Body).Decode(&runList)
+
+				Convey("The response should succeed with code 200", func() {
+					So(w.Code, ShouldEqual, 200)
+				})
+
+				Convey("The response should be of kind RunList", func() {
+					So(runList.Kind, ShouldEqual, "RunList")
+				})
+
+				Convey("The response should have empty items", func() {
+					So(runList.Items, ShouldBeEmpty)
+				})
+			})
+		})
+	})
+}
+
+func TestRunHandlerGet(t *testing.T) {
+	Convey("Scenario: get a single run", t, func() {
+		Convey("Given a run is requested", func() {
+			w := httptest.NewRecorder()
+			r, err := http.NewRequest("GET", "/api/runs/abc", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			handler := http.Handler(NewHandler())
+
+			Convey("When the run exists", func() {
+				handler.ServeHTTP(w, r)
+
+				Convey("The request should succeed with code 200", nil)
+
+				Convey("The response should have a global status", nil)
+
+				Convey("The response should have a status for each job", nil)
+			})
+
+			Convey("When the run does not exist", func() {
+				handler.ServeHTTP(w, r)
+
+				Convey("The request should fail with code 404", func() {
+					So(w.Code, ShouldEqual, 404)
+				})
+			})
+		})
+	})
+}
+
+func TestRunHandlerPost(t *testing.T) {
 	Convey("Scenario: run a pipeline", t, func() {
-		Convey("Given a pipeline is run", func() {
+		Convey("Given a run is created", func() {
 			w := httptest.NewRecorder()
 			handler := http.Handler(NewHandler())
 			uri := "/api/runs"
@@ -66,6 +147,13 @@ func TestRunHandler(t *testing.T) {
 					var run Run
 					json.NewDecoder(w.Body).Decode(&run)
 					So(run.Kind, ShouldEqual, "Run")
+				})
+
+				Convey("The response should have a link to the created run", func() {
+					handler.ServeHTTP(w, r)
+					var run Run
+					json.NewDecoder(w.Body).Decode(&run)
+					So(run.Metadata.SelfLink, ShouldStartWith, "/api/runs/")
 				})
 
 				Convey("And the pipeline run fails", func() {
@@ -130,8 +218,8 @@ func TestRunHandler(t *testing.T) {
 				})
 			})
 
-			Convey("When the method is not POST", func() {
-				r, err := http.NewRequest("GET", uri, strings.NewReader(""))
+			Convey("When the method is unsupported", func() {
+				r, err := http.NewRequest("DELETE", uri, strings.NewReader(""))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -142,7 +230,7 @@ func TestRunHandler(t *testing.T) {
 				})
 
 				Convey("The response should have the Allow header", func() {
-					So(w.Header().Get("Allow"), ShouldEqual, "POST")
+					So(w.Header().Get("Allow"), ShouldEqual, "GET, POST")
 				})
 
 				Convey("The response should have the Content-Type application/json", func() {

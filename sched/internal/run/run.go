@@ -19,7 +19,8 @@ type Run struct {
 }
 
 type RunMetadata struct {
-	UID uuid.UUID `json:"uid"`
+	SelfLink string    `json:"selfLink"`
+	UID      uuid.UUID `json:"uid"`
 }
 
 func New() *Run {
@@ -31,24 +32,60 @@ func New() *Run {
 	}
 }
 
-type runHandler struct {
+type RunList struct {
+	Kind     string          `json:"kind"`
+	Metadata RunListMetadata `json:"metadata"`
+	Items    []Run           `json:"items"`
 }
+
+type RunListMetadata struct {
+	SelfLink string `json:"selfLink"`
+}
+
+func NewList() *RunList {
+	return &RunList{
+		Kind: "RunList",
+		Metadata: RunListMetadata{
+			SelfLink: "/api/runs",
+		},
+		Items: make([]Run, 0),
+	}
+}
+
+type runHandler struct{}
 
 func NewHandler() http.Handler {
 	mux := httputil.NewServeMux()
 	mux.Handle("/api/runs", &runHandler{})
+	mux.Handle("/api/runs/", &runHandler{})
 	return mux
 }
 
 func (h *runHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	if r.Method != "POST" {
-		w.Header().Set("Allow", "POST")
+	switch r.Method {
+	case "GET":
+		runUID := r.URL.Path[len("/api/runs"):]
+		if len(runUID) == 0 {
+			h.list(w)
+		} else {
+			h.get(w, runUID[1:])
+		}
+	case "POST":
+		h.post(w, r)
+	default:
+		w.Header().Set("Allow", "GET, POST")
 		httputil.WriteError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
 	}
+}
 
-	h.post(w, r)
+func (h *runHandler) list(w http.ResponseWriter) {
+	runList := NewList()
+	httputil.WriteResponse(w, runList, http.StatusOK)
+}
+
+func (h *runHandler) get(w http.ResponseWriter, runUID string) {
+	httputil.WriteError(w, "Run "+runUID+" was not found", http.StatusNotFound)
 }
 
 // This variable is here to be overridden by unit tests,
@@ -77,6 +114,6 @@ func (h *runHandler) post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// resp.Metadata.selfLink = "/api/runs/" + run.UID.String()
+	run.Metadata.SelfLink = "/api/runs/" + run.Metadata.UID.String()
 	httputil.WriteResponse(w, run, http.StatusAccepted)
 }
