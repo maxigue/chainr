@@ -12,9 +12,9 @@ The following use cases can be considered:
 - ...
 
 ## Concepts
-- **Pipeline**: A Pipeline is the top-level unit, it contains Jobs and triggers Runs when started.
+- **Pipeline**: A Pipeline is the top-level unit, it contains Jobs to be run on Kubernetes.
 - **Job**: A Job is the execution unit. It starts a docker container on Kubernetes and runs commands inside.
-- **Run**: A Run is spawned from a pipeline, it contains the information on a pipeline execution.
+- **Run**: A Run allows to follow the status of a scheduled pipeline.
 
 ## Example
 The following YAML is a representation of a basic pipeline, containing two jobs run in parallel. The first job triggers a different job in case of success or error.

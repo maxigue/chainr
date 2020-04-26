@@ -1,4 +1,4 @@
-package pipeline
+package run
 
 import (
 	"testing"
@@ -9,48 +9,30 @@ import (
 	"github.com/go-redis/redis/v7"
 )
 
-func TestJSONSchemaError(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("JSON schema initialization did not panic")
-		}
-	}()
-
-	pipelineSchema = `{test}`
-	initJSONSchema()
-}
-
-func TestRedisClient(t *testing.T) {
-	old := redisClient
-	defer func() {
-		redisClient = old
-	}()
-
-	initRedisClient()
-	client := redisClient.(*redis.Client)
+func TestNewScheduler(t *testing.T) {
+	s := NewScheduler().(*RedisScheduler)
+	client := s.client.(*redis.Client)
 	expected := "Redis<redis:6379 db:0>"
 	if client.String() != expected {
 		t.Errorf("client = %v, expected %v", client, expected)
 	}
 }
 
-func TestRedisClientWithEnv(t *testing.T) {
-	old := redisClient
-	defer func() {
-		redisClient = old
-	}()
-
+func TestNewSchedulerWithEnv(t *testing.T) {
 	if err := os.Setenv("REDIS_ADDR", "test:1234"); err != nil {
 		t.Fatal(err)
 	}
+	defer os.Unsetenv("REDIS_ADDR")
 	if err := os.Setenv("REDIS_PASSWORD", "passw0rd"); err != nil {
 		t.Fatal(err)
 	}
+	defer os.Unsetenv("REDIS_PASSWORD")
 	if err := os.Setenv("REDIS_DB", "1"); err != nil {
 		t.Fatal(err)
 	}
-	initRedisClient()
-	client := redisClient.(*redis.Client)
+	defer os.Unsetenv("REDIS_DB")
+	s := NewScheduler().(*RedisScheduler)
+	client := s.client.(*redis.Client)
 
 	expected := "Redis<test:1234 db:1>"
 	if client.String() != expected {
@@ -58,71 +40,18 @@ func TestRedisClientWithEnv(t *testing.T) {
 	}
 }
 
-func TestRedisClientWithEnvError(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("Redis client initialization did not panic")
-		}
-	}()
-
-	old := redisClient
-	defer func() {
-		redisClient = old
-	}()
-
+// In case of error reading the redis database, the default database is used.
+func TestNewSchedulerWithEnvError(t *testing.T) {
 	if err := os.Setenv("REDIS_DB", "test"); err != nil {
 		t.Fatal(err)
 	}
-	initRedisClient()
-}
+	defer os.Unsetenv("REDIS_DB")
+	s := NewScheduler().(*RedisScheduler)
+	client := s.client.(*redis.Client)
 
-func TestNew(t *testing.T) {
-	p := New().(*pipeline)
-	if p.Kind != "Pipeline" {
-		t.Errorf("p.Kind = %v, expected Pipeline", p.Kind)
-	}
-	if p.Jobs == nil {
-		t.Errorf("p.Jobs is nil, expected map")
-	}
-}
-
-func TestNewFromSpec(t *testing.T) {
-	spec := []byte(`{
-		"kind": "Pipeline",
-		"jobs": {
-			"job1": {
-				"image": "busybox",
-				"run": "exit 0"
-			}
-		}
-	}`)
-
-	pip, err := NewFromSpec(spec)
-	if err != nil {
-		t.Fatal("err = nil, expected not nil")
-	}
-	p := pip.(*pipeline)
-	if image := p.Jobs["job1"].Image; image != "busybox" {
-		t.Errorf("image = %v, expected busybox", image)
-	}
-}
-
-func TestNewFromSpecBadFormat(t *testing.T) {
-	spec := []byte(`{invalid}`)
-	_, err := NewFromSpec(spec)
-	if err == nil {
-		t.Fatal("NewFromSpec from an invalid format returned a nil error")
-	}
-}
-
-func TestNewFromSpecBadSchema(t *testing.T) {
-	spec := []byte(`{
-		"kind": "Pipeline",
-		"invalid": "hello"
-	}`)
-	_, err := NewFromSpec(spec)
-	if err == nil {
-		t.Fatal("NewFromSpec from an invalid schema returned a nil error")
+	expected := "Redis<redis:6379 db:0>"
+	if client.String() != expected {
+		t.Errorf("client = %v, expected %v", client, expected)
 	}
 }
 
@@ -173,8 +102,8 @@ func newRedisClientMock(t *testing.T) redis.Cmdable {
 }
 func (c *redisClientMock) Set(key string, value interface{}, expiration time.Duration) *redis.StatusCmd {
 	if i, ok := indexOf(c.expectSetK, key); ok {
-		if value != "0" {
-			c.t.Errorf("value = %v, expected 0", value)
+		if value != "abc" {
+			c.t.Errorf("value = %v, expected abc", value)
 		}
 		if expiration != 0 {
 			c.t.Errorf("expiration = %v, expected 0", expiration)
@@ -190,9 +119,9 @@ func (c *redisClientMock) HSet(key string, values ...interface{}) *redis.IntCmd 
 		expectedValues := []string{}
 		switch c.expectHSetK[i] {
 		case "job:job1:run:abc":
-			expectedValues = []string{"image", "busybox", "run", "exit 0", "status", "PENDING"}
+			expectedValues = []string{"name", "job1", "image", "busybox", "run", "exit 0", "status", "PENDING"}
 		case "job:job2:run:abc":
-			expectedValues = []string{"image", "busybox", "run", "exit 1", "status", "PENDING"}
+			expectedValues = []string{"name", "job2", "image", "busybox", "run", "exit 1", "status", "PENDING"}
 		case "dependency:job1:job:job2:run:abc":
 			expectedValues = []string{"failure", "true"}
 		case "dependency:job42:job:job2:run:abc":
@@ -225,9 +154,48 @@ func (c *redisClientMock) LPush(key string, values ...interface{}) *redis.IntCmd
 	}
 	return redis.NewIntCmd()
 }
+func (c *redisClientMock) Keys(pattern string) *redis.StringSliceCmd {
+	vals := make([]string, 0)
+	switch pattern {
+	case "run:*":
+		vals = append(vals, "run:abc")
+	case "job:*:run:abc":
+		vals = append(vals, "job:job1:run:abc")
+		vals = append(vals, "job:job2:run:abc")
+	case "job:*:run:notfound":
+	default:
+		c.t.Errorf("unexpected pattern %v", pattern)
+	}
+	return redis.NewStringSliceResult(vals, nil)
+}
+func (c *redisClientMock) Get(key string) *redis.StringCmd {
+	if key != "run:abc" {
+		c.t.Errorf("unexpected key %v, expected run:abc", key)
+	}
+	return redis.NewStringResult("abc", nil)
+}
+func (c *redisClientMock) HGetAll(key string) *redis.StringStringMapCmd {
+	vals := make(map[string]string)
+	switch key {
+	case "job:job1:run:abc":
+		vals["name"] = "job1"
+		vals["image"] = "busybox"
+		vals["run"] = "exit 0"
+		vals["status"] = "RUNNING"
+	case "job:job2:run:abc":
+		vals["name"] = "job2"
+		vals["image"] = "busybox"
+		vals["run"] = "exit 1"
+		vals["status"] = "WAITING"
+	default:
+		c.t.Errorf("unexpected key %v", key)
+	}
 
-func TestRun(t *testing.T) {
-	redisClient = newRedisClientMock(t)
+	return redis.NewStringStringMapResult(vals, nil)
+}
+
+func TestSchedule(t *testing.T) {
+	s := RedisScheduler{newRedisClientMock(t)}
 
 	spec := []byte(`{
 		"kind": "Pipeline",
@@ -250,15 +218,26 @@ func TestRun(t *testing.T) {
 			}
 		}
 	}`)
-	p, err := NewFromSpec(spec)
+	run, err := New(spec)
+	run.Metadata.UID = "abc"
+	run.Metadata.SelfLink = "/api/runs/" + run.Metadata.UID
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := p.Run("abc"); err != nil {
+
+	status, err := s.Schedule(run)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	client := redisClient.(*redisClientMock)
+	if status["job1"] != "PENDING" {
+		t.Errorf("status[job1] = %v, expected PENDING", status["job1"])
+	}
+	if status["job2"] != "PENDING" {
+		t.Errorf("status[job2] = %v, expected PENDING", status["job1"])
+	}
+
+	client := s.client.(*redisClientMock)
 	if len(client.expectSetK) > 0 {
 		t.Errorf("missing calls to Set: %v", client.expectSetK)
 	}
@@ -267,5 +246,44 @@ func TestRun(t *testing.T) {
 	}
 	if len(client.expectLPushV) > 0 {
 		t.Errorf("missing calls to LPush: %v", client.expectLPushV)
+	}
+}
+
+func TestStatus(t *testing.T) {
+	s := RedisScheduler{newRedisClientMock(t)}
+	status, err := s.Status("abc")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if status["job1"] != "RUNNING" {
+		t.Errorf("status[job1] = %v, expected RUNNING", status["job1"])
+	}
+	if status["job2"] != "WAITING" {
+		t.Errorf("status[job2] = %v, expected WAITING", status["job2"])
+	}
+}
+
+func TestStatusNotFound(t *testing.T) {
+	s := RedisScheduler{newRedisClientMock(t)}
+	_, err := s.Status("notfound")
+	e := err.(*NotFoundError)
+	if e.RunUID != "notfound" {
+		t.Errorf("e.RunID = %v, expected notfound", e.RunUID)
+	}
+}
+
+func TestStatusMap(t *testing.T) {
+	s := RedisScheduler{newRedisClientMock(t)}
+	statusMap, err := s.StatusMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if statusMap["abc"]["job1"] != "RUNNING" {
+		t.Errorf("statusMap[abc][job1] = %v, expected RUNNING", statusMap["abc"]["job1"])
+	}
+	if statusMap["abc"]["job2"] != "WAITING" {
+		t.Errorf("statusMap[abc][job2] = %v, expected WAITING", statusMap["abc"]["job2"])
 	}
 }

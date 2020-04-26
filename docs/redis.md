@@ -5,8 +5,10 @@ This documentation explains the redis structure.
 Redis is used for message passing and transient storage. It contains jobs specs and status, and channels for jobs events.
 
 ## Keys
+- **run:\<uid\>**: String containing the run uid.
 - **job:\<name\>:run:\<uid\>**: Hash containing the job's spec and status. A new key is created for each job. The run uid is set as a suffix to allow searchs by run. The hash contains the following fields:
 ```
+name: string: The job name.
 image: string: The docker image to use.
 run: string: The command to run.
 status: status: The job status.
