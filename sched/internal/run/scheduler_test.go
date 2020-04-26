@@ -78,11 +78,23 @@ func equals(a []string, b []string) bool {
 	}
 	return true
 }
+func equalsUnordered(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for _, v := range a {
+		if _, ok := indexOf(b, v); !ok {
+			return false
+		}
+	}
+	return true
+}
 
 type redisClientMock struct {
 	t            *testing.T
 	expectSetK   []string
 	expectHSetK  []string
+	expectSAddK  []string
 	expectLPushV []string
 	*redis.Client
 }
@@ -97,20 +109,25 @@ func newRedisClientMock(t *testing.T) redis.Cmdable {
 			"dependency:job1:job:job2:run:abc",
 			"dependency:job42:job:job2:run:abc",
 		},
+		expectSAddK: []string{
+			"runs",
+			"jobs:run:abc",
+			"dependencies:job:job2:run:abc",
+		},
 		expectLPushV: []string{"job:job1:run:abc", "job:job2:run:abc"},
 	}
 }
 func (c *redisClientMock) Set(key string, value interface{}, expiration time.Duration) *redis.StatusCmd {
 	if i, ok := indexOf(c.expectSetK, key); ok {
 		if value != "abc" {
-			c.t.Errorf("value = %v, expected abc", value)
+			c.t.Errorf("Set: value = %v, expected abc", value)
 		}
 		if expiration != 0 {
-			c.t.Errorf("expiration = %v, expected 0", expiration)
+			c.t.Errorf("Set: expiration = %v, expected 0", expiration)
 		}
 		c.expectSetK = remove(c.expectSetK, i)
 	} else {
-		c.t.Errorf("unexpected key %v", key)
+		c.t.Errorf("Set: unexpected key %v", key)
 	}
 	return redis.NewStatusCmd()
 }
@@ -132,45 +149,69 @@ func (c *redisClientMock) HSet(key string, values ...interface{}) *redis.IntCmd 
 			vals[i] = v.(string)
 		}
 		if !equals(vals, expectedValues) {
-			c.t.Errorf("values = %v, expected %v", vals, expectedValues)
+			c.t.Errorf("HSet: values = %v, expected %v", vals, expectedValues)
 		}
 		c.expectHSetK = remove(c.expectHSetK, i)
 	} else {
-		c.t.Errorf("unexpected key %v", key)
+		c.t.Errorf("HSet: unexpected key %v", key)
+	}
+	return redis.NewIntCmd()
+}
+func (c *redisClientMock) SAdd(key string, members ...interface{}) *redis.IntCmd {
+	if i, ok := indexOf(c.expectSAddK, key); ok {
+		expectedValues := []string{}
+		switch c.expectSAddK[i] {
+		case "runs":
+			expectedValues = []string{"run:abc"}
+		case "jobs:run:abc":
+			expectedValues = []string{"job:job1:run:abc", "job:job2:run:abc"}
+		case "dependencies:job:job1:run:abc":
+		case "dependencies:job:job2:run:abc":
+			expectedValues = []string{"dependency:job1:job:job2:run:abc", "dependency:job42:job:job2:run:abc"}
+		}
+		vals := make([]string, len(members))
+		for i, v := range members {
+			vals[i] = v.(string)
+		}
+		if !equalsUnordered(vals, expectedValues) {
+			c.t.Errorf("SAdd: members = %v, expected %v", vals, expectedValues)
+		}
+		c.expectSAddK = remove(c.expectSAddK, i)
+	} else {
+		c.t.Errorf("SAdd: unexpected key %v", key)
 	}
 	return redis.NewIntCmd()
 }
 func (c *redisClientMock) LPush(key string, values ...interface{}) *redis.IntCmd {
-	if key != "work:jobs" {
-		c.t.Errorf("unexpected key %v", key)
+	if key != "jobs:work" {
+		c.t.Errorf("LPush: unexpected key %v", key)
 	}
 	for _, val := range values {
 		v := val.(string)
 		if i, ok := indexOf(c.expectLPushV, v); ok {
 			c.expectLPushV = remove(c.expectLPushV, i)
 		} else {
-			c.t.Errorf("unexpected value %v", v)
+			c.t.Errorf("LPush: unexpected value %v", v)
 		}
 	}
 	return redis.NewIntCmd()
 }
-func (c *redisClientMock) Keys(pattern string) *redis.StringSliceCmd {
+func (c *redisClientMock) SMembers(key string) *redis.StringSliceCmd {
 	vals := make([]string, 0)
-	switch pattern {
-	case "run:*":
+	switch key {
+	case "runs":
 		vals = append(vals, "run:abc")
-	case "job:*:run:abc":
-		vals = append(vals, "job:job1:run:abc")
-		vals = append(vals, "job:job2:run:abc")
-	case "job:*:run:notfound":
+	case "jobs:run:abc":
+		vals = append(vals, "job:job1:run:abc", "job:job2:run:abc")
+	case "jobs:run:notfound":
 	default:
-		c.t.Errorf("unexpected pattern %v", pattern)
+		c.t.Errorf("SMembers: unexpected key %v", key)
 	}
 	return redis.NewStringSliceResult(vals, nil)
 }
 func (c *redisClientMock) Get(key string) *redis.StringCmd {
 	if key != "run:abc" {
-		c.t.Errorf("unexpected key %v, expected run:abc", key)
+		c.t.Errorf("Get: unexpected key %v, expected run:abc", key)
 	}
 	return redis.NewStringResult("abc", nil)
 }
@@ -188,7 +229,7 @@ func (c *redisClientMock) HGetAll(key string) *redis.StringStringMapCmd {
 		vals["run"] = "exit 1"
 		vals["status"] = "WAITING"
 	default:
-		c.t.Errorf("unexpected key %v", key)
+		c.t.Errorf("HGetAll: unexpected key %v", key)
 	}
 
 	return redis.NewStringStringMapResult(vals, nil)
@@ -244,6 +285,9 @@ func TestSchedule(t *testing.T) {
 	}
 	if len(client.expectHSetK) > 0 {
 		t.Errorf("missing calls to HSet: %v", client.expectHSetK)
+	}
+	if len(client.expectSAddK) > 0 {
+		t.Errorf("missing calls to SAdd: %v", client.expectSAddK)
 	}
 	if len(client.expectLPushV) > 0 {
 		t.Errorf("missing calls to LPush: %v", client.expectLPushV)

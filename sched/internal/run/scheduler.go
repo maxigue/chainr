@@ -56,26 +56,42 @@ func NewScheduler() Scheduler {
 	return &RedisScheduler{client}
 }
 
+func makeRunsKey() string {
+	return "runs"
+}
+
 func makeRunKey(runUID string) string {
 	return "run:" + runUID
 }
 
+func makeRunJobsKey(runUID string) string {
+	return "jobs:" + makeRunKey(runUID)
+}
+
+func makeWorkJobsKey() string {
+	return "jobs:work"
+}
+
 func makeJobKey(runUID string, jobName string) string {
-	return "job:" + jobName + ":run:" + runUID
+	return "job:" + jobName + ":" + makeRunKey(runUID)
+}
+
+func makeJobDependenciesKey(runUID string, jobName string) string {
+	return "dependencies:" + makeJobKey(runUID, jobName)
 }
 
 func makeJobDependencyKey(runUID string, jobName string, depName string) string {
-	return "dependency:" + depName + ":job:" + jobName + ":run:" + runUID
+	return "dependency:" + depName + ":" + makeJobKey(runUID, jobName)
 }
 
 // The Schedule method schedules the run for workers.
 // It adds the run key in redis, and keys for each job and their dependencies.
 // It also adds the jobs to the job queue.
 func (s RedisScheduler) Schedule(run Run) (Status, error) {
-	if err := s.scheduleRun(run.Metadata.UID); err != nil {
+	if err := s.scheduleJobs(run.Metadata.UID, run.p.Jobs); err != nil {
 		return Status{}, err
 	}
-	if err := s.scheduleJobs(run.Metadata.UID, run.p.Jobs); err != nil {
+	if err := s.scheduleRun(run.Metadata.UID); err != nil {
 		return Status{}, err
 	}
 
@@ -86,15 +102,17 @@ func (s RedisScheduler) Schedule(run Run) (Status, error) {
 	return status, nil
 }
 
-func (s RedisScheduler) scheduleRun(runUID string) error {
-	runKey := makeRunKey(runUID)
-	return s.client.Set(runKey, runUID, 0).Err()
-}
-
+// Jobs are added to the jobs set and the work queue only
+// if all jobs were successfully created.
+// This avoids partial scheduling due to technical errors.
 func (s RedisScheduler) scheduleJobs(runUID string, jobs map[string]Job) error {
-	pendingJobsChannel := "work:jobs"
+	jobKeys := make([]interface{}, 0, len(jobs))
 
 	for jobName, job := range jobs {
+		if err := s.scheduleDependencies(runUID, jobName, job); err != nil {
+			return err
+		}
+
 		jobKey := makeJobKey(runUID, jobName)
 		fields := []interface{}{
 			"name", jobName,
@@ -105,26 +123,54 @@ func (s RedisScheduler) scheduleJobs(runUID string, jobs map[string]Job) error {
 		if err := s.client.HSet(jobKey, fields...).Err(); err != nil {
 			return err
 		}
-		if err := s.scheduleDependencies(runUID, jobName, job); err != nil {
+		jobKeys = append(jobKeys, jobKey)
+	}
+
+	if len(jobKeys) > 0 {
+		if err := s.client.SAdd(makeRunJobsKey(runUID), jobKeys...).Err(); err != nil {
 			return err
 		}
-		if err := s.client.LPush(pendingJobsChannel, jobKey).Err(); err != nil {
+		if err := s.client.LPush(makeWorkJobsKey(), jobKeys...).Err(); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
 func (s RedisScheduler) scheduleDependencies(runUID string, jobName string, job Job) error {
+	depKeys := make([]interface{}, 0, len(job.DependsOn))
+
 	for _, dep := range job.DependsOn {
-		depKey := makeJobDependencyKey(runUID, jobName, dep.Job)
 		failure := "false"
 		if dep.Conditions.Failure {
 			failure = "true"
 		}
+		depKey := makeJobDependencyKey(runUID, jobName, dep.Job)
 		if err := s.client.HSet(depKey, "failure", failure).Err(); err != nil {
 			return err
 		}
+		depKeys = append(depKeys, depKey)
+	}
+
+	if len(depKeys) > 0 {
+		depsKey := makeJobDependenciesKey(runUID, jobName)
+		if err := s.client.SAdd(depsKey, depKeys...).Err(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s RedisScheduler) scheduleRun(runUID string) error {
+	runKey := makeRunKey(runUID)
+	if err := s.client.Set(runKey, runUID, 0).Err(); err != nil {
+		return err
+	}
+	runsKey := makeRunsKey()
+	if err := s.client.SAdd(runsKey, runKey).Err(); err != nil {
+		return err
 	}
 
 	return nil
@@ -133,17 +179,17 @@ func (s RedisScheduler) scheduleDependencies(runUID string, jobName string, job 
 func (s RedisScheduler) Status(runUID string) (Status, error) {
 	status := Status{}
 
-	vals, err := s.client.Keys(makeJobKey(runUID, "*")).Result()
+	jobKeys, err := s.client.SMembers(makeRunJobsKey(runUID)).Result()
 	if err != nil {
 		return nil, err
 	}
 
-	if len(vals) == 0 {
+	if len(jobKeys) == 0 {
 		return status, &NotFoundError{runUID}
 	}
 
-	for _, key := range vals {
-		job, err := s.client.HGetAll(key).Result()
+	for _, jobKey := range jobKeys {
+		job, err := s.client.HGetAll(jobKey).Result()
 		if err != nil {
 			return status, err
 		}
@@ -157,12 +203,12 @@ func (s RedisScheduler) Status(runUID string) (Status, error) {
 func (s RedisScheduler) StatusMap() (map[string]Status, error) {
 	statusMap := make(map[string]Status)
 
-	vals, err := s.client.Keys(makeRunKey("*")).Result()
+	runKeys, err := s.client.SMembers(makeRunsKey()).Result()
 	if err != nil {
 		return statusMap, err
 	}
-	for _, key := range vals {
-		runUID, err := s.client.Get(key).Result()
+	for _, runKey := range runKeys {
+		runUID, err := s.client.Get(runKey).Result()
 		if err != nil {
 			return statusMap, err
 		}
