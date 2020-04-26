@@ -86,8 +86,13 @@ const jobDependencyConditionsSchema = `{
 }`
 
 // The PipelineFactory allows to create pipelines.
+type PipelineFactory interface {
+	Create(spec []byte) (Pipeline, error)
+}
+
+// Pipeline factory using a JSON spec as input.
 // It initializes the pipeline json schema.
-type PipelineFactory struct {
+type JSONPipelineFactory struct {
 	schema *jsonschema.RootSchema
 }
 
@@ -101,12 +106,12 @@ func newPipelineFactory(schema []byte) PipelineFactory {
 		panic("unmarshal pipeline schema: " + err.Error())
 	}
 
-	return PipelineFactory{rootSchema}
+	return JSONPipelineFactory{rootSchema}
 }
 
 // Creates a pipeline from a JSON spec given as an array of bytes.
 // If the spec has an invalid format, an error is returned.
-func (pf PipelineFactory) Create(spec []byte) (Pipeline, error) {
+func (pf JSONPipelineFactory) Create(spec []byte) (Pipeline, error) {
 	if errs, _ := pf.schema.ValidateBytes(spec); len(errs) > 0 {
 		arr := make([]string, 0, len(errs))
 		for _, e := range errs {
