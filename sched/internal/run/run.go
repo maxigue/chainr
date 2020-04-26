@@ -129,6 +129,7 @@ func (h *runHandler) list(w http.ResponseWriter) {
 	if err != nil {
 		log.Println("Unable to get status map:", err.Error())
 		httputil.WriteError(w, err, http.StatusInternalServerError)
+		return
 	}
 
 	runList := NewList(statusMap)
