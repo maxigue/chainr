@@ -11,9 +11,10 @@ import (
 	"strconv"
 )
 
-var port = 8080
+func main() {
+	log.Println("Starting chainr notifier")
 
-func init() {
+	port := 8080
 	val, ok := os.LookupEnv("PORT")
 	if ok {
 		p, err := strconv.Atoi(val)
@@ -22,10 +23,6 @@ func init() {
 		}
 		port = p
 	}
-}
-
-func main() {
-	log.Println("Starting chainr notifier")
 
 	// TODO: this block is only for bootstrapping
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

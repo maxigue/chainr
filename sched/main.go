@@ -13,9 +13,10 @@ import (
 	"strconv"
 )
 
-var port = 8080
+func main() {
+	log.Println("Starting chainr scheduler")
 
-func init() {
+	port := 8080
 	val, ok := os.LookupEnv("PORT")
 	if ok {
 		p, err := strconv.Atoi(val)
@@ -24,10 +25,6 @@ func init() {
 		}
 		port = p
 	}
-}
-
-func main() {
-	log.Println("Starting chainr scheduler")
 
 	addr := fmt.Sprintf(":%d", port)
 	log.Println("Listening on", addr)
