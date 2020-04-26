@@ -13,7 +13,7 @@ type Pipeline struct {
 	Jobs map[string]Job `json:"jobs"`
 }
 
-var pipelineSchema = `{
+const pipelineSchema = `{
 	"title": "Pipeline",
 	"type": "object",
 	"properties": {
@@ -36,7 +36,7 @@ type Job struct {
 	DependsOn []JobDependency `json:"dependsOn"`
 }
 
-var jobSchema = `{
+const jobSchema = `{
 	"type": "object",
 	"properties": {
 		"image": {
@@ -59,7 +59,7 @@ type JobDependency struct {
 	Conditions JobDependencyConditions `json:"conditions"`
 }
 
-var jobDependencySchema = `{
+const jobDependencySchema = `{
 	"type": "object",
 	"properties": {
 		"job": {
@@ -75,7 +75,7 @@ type JobDependencyConditions struct {
 	Failure bool `json:"failure"`
 }
 
-var jobDependencyConditionsSchema = `{
+const jobDependencyConditionsSchema = `{
 	"type": "object",
 	"properties": {
 		"failure": {
@@ -85,23 +85,29 @@ var jobDependencyConditionsSchema = `{
 	"additionalProperties": false
 }`
 
-var schema = &jsonschema.RootSchema{}
-
-// Initialize the JSON schema and the redis client.
-func init() {
-	initJSONSchema()
+// The PipelineFactory allows to create pipelines.
+// It initializes the pipeline json schema.
+type PipelineFactory struct {
+	schema *jsonschema.RootSchema
 }
 
-func initJSONSchema() {
-	if err := json.Unmarshal([]byte(pipelineSchema), schema); err != nil {
+func NewPipelineFactory() PipelineFactory {
+	return newPipelineFactory([]byte(pipelineSchema))
+}
+func newPipelineFactory(schema []byte) PipelineFactory {
+	rootSchema := &jsonschema.RootSchema{}
+
+	if err := json.Unmarshal(schema, rootSchema); err != nil {
 		panic("unmarshal pipeline schema: " + err.Error())
 	}
+
+	return PipelineFactory{rootSchema}
 }
 
 // Creates a pipeline from a JSON spec given as an array of bytes.
 // If the spec has an invalid format, an error is returned.
-func NewPipeline(spec []byte) (Pipeline, error) {
-	if errs, _ := schema.ValidateBytes(spec); len(errs) > 0 {
+func (pf PipelineFactory) Create(spec []byte) (Pipeline, error) {
+	if errs, _ := pf.schema.ValidateBytes(spec); len(errs) > 0 {
 		arr := make([]string, 0, len(errs))
 		for _, e := range errs {
 			arr = append(arr, e.Error())

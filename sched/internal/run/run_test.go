@@ -12,35 +12,14 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	spec := []byte(`{
-		"kind": "Pipeline",
-		"jobs": {
-			"job1": {
-				"image": "busybox",
-				"run": "exit 0"
-			}
-		}
-	}`)
-
-	r, err := New(spec)
-	if err != nil {
-		t.Fatal(err)
-	}
+	p := Pipeline{}
+	r := New(p)
 	if r.Kind != "Run" {
 		t.Errorf("r.Kind = %v, expected Run", r.Kind)
 	}
 	selfLink := "/api/runs/" + r.Metadata.UID
 	if r.Metadata.SelfLink != selfLink {
 		t.Errorf("r.Metadata.SelfLink = %v, expected %v", r.Metadata.SelfLink, selfLink)
-	}
-}
-
-func TestNewFail(t *testing.T) {
-	spec := []byte(`{invalid}`)
-
-	_, err := New(spec)
-	if err == nil {
-		t.Errorf("err is nil, expected non-nil")
 	}
 }
 
@@ -142,7 +121,7 @@ func TestRunHandlerList(t *testing.T) {
 			}
 
 			Convey("When there are runs", func() {
-				handler := http.Handler(newHandler(&nonEmptyScheduler{}))
+				handler := http.Handler(newHandler(NewPipelineFactory(), &nonEmptyScheduler{}))
 				handler.ServeHTTP(w, r)
 				var runList RunList
 				json.NewDecoder(w.Body).Decode(&runList)
@@ -166,7 +145,7 @@ func TestRunHandlerList(t *testing.T) {
 			})
 
 			Convey("When there are no runs", func() {
-				handler := http.Handler(newHandler(&emptyScheduler{}))
+				handler := http.Handler(newHandler(NewPipelineFactory(), &emptyScheduler{}))
 				handler.ServeHTTP(w, r)
 				var runList RunList
 				json.NewDecoder(w.Body).Decode(&runList)
@@ -185,7 +164,7 @@ func TestRunHandlerList(t *testing.T) {
 			})
 
 			Convey("When the scheduler fails", func() {
-				handler := http.Handler(newHandler(&failingScheduler{}))
+				handler := http.Handler(newHandler(NewPipelineFactory(), &failingScheduler{}))
 				handler.ServeHTTP(w, r)
 
 				Convey("The request should fail with code 500", func() {
@@ -206,7 +185,7 @@ func TestRunHandlerGet(t *testing.T) {
 			}
 
 			Convey("When the run exists", func() {
-				handler := http.Handler(newHandler(&nonEmptyScheduler{}))
+				handler := http.Handler(newHandler(NewPipelineFactory(), &nonEmptyScheduler{}))
 				handler.ServeHTTP(w, r)
 				var run Run
 				json.NewDecoder(w.Body).Decode(&run)
@@ -222,7 +201,7 @@ func TestRunHandlerGet(t *testing.T) {
 			})
 
 			Convey("When the run does not exist", func() {
-				handler := http.Handler(newHandler(&notFoundScheduler{}))
+				handler := http.Handler(newHandler(NewPipelineFactory(), &notFoundScheduler{}))
 				handler.ServeHTTP(w, r)
 
 				Convey("The request should fail with code 404", func() {
@@ -231,7 +210,7 @@ func TestRunHandlerGet(t *testing.T) {
 			})
 
 			Convey("When the scheduler fails", func() {
-				handler := http.Handler(newHandler(&failingScheduler{}))
+				handler := http.Handler(newHandler(NewPipelineFactory(), &failingScheduler{}))
 				handler.ServeHTTP(w, r)
 
 				Convey("The request should fail with code 500", func() {
@@ -252,7 +231,7 @@ func TestRunHandlerPost(t *testing.T) {
 	Convey("Scenario: run a pipeline", t, func() {
 		Convey("Given a run is created", func() {
 			w := httptest.NewRecorder()
-			handler := http.Handler(newHandler(&emptyScheduler{}))
+			handler := http.Handler(newHandler(NewPipelineFactory(), &emptyScheduler{}))
 			uri := "/api/runs"
 
 			Convey("When the data is a valid pipeline", func() {
@@ -290,7 +269,7 @@ func TestRunHandlerPost(t *testing.T) {
 				})
 
 				Convey("And the run scheduling fails", func() {
-					handler = http.Handler(newHandler(&failingScheduler{}))
+					handler = http.Handler(newHandler(NewPipelineFactory(), &failingScheduler{}))
 					handler.ServeHTTP(w, r)
 					Convey("The request should fail with code 500", func() {
 						So(w.Code, ShouldEqual, 500)

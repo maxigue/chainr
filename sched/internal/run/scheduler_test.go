@@ -218,12 +218,13 @@ func TestSchedule(t *testing.T) {
 			}
 		}
 	}`)
-	run, err := New(spec)
-	run.Metadata.UID = "abc"
-	run.Metadata.SelfLink = "/api/runs/" + run.Metadata.UID
+	p, err := NewPipelineFactory().Create(spec)
 	if err != nil {
 		t.Fatal(err)
 	}
+	run := New(p)
+	run.Metadata.UID = "abc"
+	run.Metadata.SelfLink = "/api/runs/" + run.Metadata.UID
 
 	status, err := s.Schedule(run)
 	if err != nil {

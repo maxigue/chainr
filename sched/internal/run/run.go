@@ -30,14 +30,8 @@ type Metadata struct {
 // Status key is the job name, value is the status.
 type Status map[string]string
 
-// Creates a run from a JSON spec given as an array of bytes.
-// If the spec has an invalid format, an error is returned.
-func New(spec []byte) (Run, error) {
-	p, err := NewPipeline(spec)
-	if err != nil {
-		return Run{}, err
-	}
-
+// Creates a run from a pipeline.
+func New(p Pipeline) Run {
 	uid := uuid.New().String()
 
 	return Run{
@@ -48,7 +42,7 @@ func New(spec []byte) (Run, error) {
 			SelfLink: "/api/runs/" + uid,
 			UID:      uid,
 		},
-	}, nil
+	}
 }
 
 type RunList struct {
@@ -93,14 +87,18 @@ func NewListItem(runUID string, status Status) RunListItem {
 }
 
 type runHandler struct {
+	pf    PipelineFactory
 	sched Scheduler
 }
 
 func NewHandler() http.Handler {
-	return newHandler(NewScheduler())
+	return newHandler(
+		NewPipelineFactory(),
+		NewScheduler(),
+	)
 }
-func newHandler(sched Scheduler) http.Handler {
-	handler := &runHandler{sched}
+func newHandler(pf PipelineFactory, sched Scheduler) http.Handler {
+	handler := &runHandler{pf, sched}
 
 	mux := httputil.NewServeMux()
 	mux.Handle("/api/runs", handler)
@@ -168,11 +166,12 @@ func (h *runHandler) post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	run, err := New(body)
+	p, err := h.pf.Create(body)
 	if err != nil {
 		httputil.WriteError(w, err, http.StatusBadRequest)
 		return
 	}
+	run := New(p)
 
 	run.Status, err = h.sched.Schedule(run)
 	if err != nil {

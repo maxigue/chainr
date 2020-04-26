@@ -2,18 +2,22 @@ package run
 
 import "testing"
 
-func TestInit(t *testing.T) {
+// Calling NewPipelineFactory() should not panic.
+func TestNewPipelineFactory(t *testing.T) {
+	_ = NewPipelineFactory()
+}
+
+func TestNewPipelineFactoryFail(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
-			t.Errorf("initialization did not panic")
+			t.Errorf("PipelineFactory creation did not panic")
 		}
 	}()
 
-	pipelineSchema = `{test}`
-	initJSONSchema()
+	_ = newPipelineFactory([]byte(`{test}`))
 }
 
-func TestNewPipeline(t *testing.T) {
+func TestCreate(t *testing.T) {
 	spec := []byte(`{
 		"kind": "Pipeline",
 		"jobs": {
@@ -24,7 +28,7 @@ func TestNewPipeline(t *testing.T) {
 		}
 	}`)
 
-	p, err := NewPipeline(spec)
+	p, err := NewPipelineFactory().Create(spec)
 	if err != nil {
 		t.Fatal("err = nil, expected not nil")
 	}
@@ -35,7 +39,7 @@ func TestNewPipeline(t *testing.T) {
 
 func TestNewPipelineBadFormat(t *testing.T) {
 	spec := []byte(`{invalid}`)
-	_, err := NewPipeline(spec)
+	_, err := NewPipelineFactory().Create(spec)
 	if err == nil {
 		t.Fatal("NewPipeline from an invalid format returned a nil error")
 	}
@@ -46,7 +50,7 @@ func TestNewPipelineBadSchema(t *testing.T) {
 		"kind": "Pipeline",
 		"invalid": "hello"
 	}`)
-	_, err := NewPipeline(spec)
+	_, err := NewPipelineFactory().Create(spec)
 	if err == nil {
 		t.Fatal("NewPipeline from an invalid schema returned a nil error")
 	}
