@@ -13,9 +13,7 @@ import (
 	"strconv"
 )
 
-func main() {
-	log.Println("Starting chainr scheduler")
-
+func addr() string {
 	port := 8080
 	val, ok := os.LookupEnv("PORT")
 	if ok {
@@ -26,7 +24,13 @@ func main() {
 		port = p
 	}
 
-	addr := fmt.Sprintf(":%d", port)
+	return fmt.Sprintf(":%d", port)
+}
+
+func main() {
+	log.Println("Starting chainr scheduler")
+
+	addr := addr()
 	log.Println("Listening on", addr)
 	log.Fatal(http.ListenAndServe(addr, NewHandler()))
 }
