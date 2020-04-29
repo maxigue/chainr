@@ -14,7 +14,13 @@ import (
 	"github.com/Tyrame/chainr/sched/internal/httputil"
 )
 
-// Possible values for all status:
+// Possible values for run status:
+// - PENDING
+// - RUNNING
+// - SUCCESSFUL
+// - FAILED
+// - CANCELED
+// Possible values for jobs status:
 // - PENDING
 // - RUNNING
 // - SUCCESSFUL

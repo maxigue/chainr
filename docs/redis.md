@@ -17,6 +17,7 @@ Status can be:
 - RUNNING: The run is being processed by a worker.
 - SUCCESSFUL: The run has completed successfully.
 - FAILED: The run has completed with an error.
+- CANCELED: The run was canceled.
 ```
 - **jobs:run:\<uid\>**: Set containing all jobs keys for a run.
 - **job:\<name\>:run:\<uid\>**: Hash containing the job's spec and status. A new key is created for each job. The run uid is set as a suffix to allow searchs by run. The hash contains the following fields:
