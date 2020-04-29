@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"os"
-	"time"
 
 	"github.com/go-redis/redis/v7"
 )
@@ -92,7 +91,6 @@ func equalsUnordered(a []string, b []string) bool {
 
 type redisClientMock struct {
 	t            *testing.T
-	expectSetK   []string
 	expectHSetK  []string
 	expectSAddK  []string
 	expectLPushV []string
@@ -101,9 +99,9 @@ type redisClientMock struct {
 
 func newRedisClientMock(t *testing.T) redis.Cmdable {
 	return &redisClientMock{
-		t:          t,
-		expectSetK: []string{"run:abc"},
+		t: t,
 		expectHSetK: []string{
+			"run:abc",
 			"job:job1:run:abc",
 			"job:job2:run:abc",
 			"dependency:job1:job:job2:run:abc",
@@ -114,27 +112,15 @@ func newRedisClientMock(t *testing.T) redis.Cmdable {
 			"jobs:run:abc",
 			"dependencies:job:job2:run:abc",
 		},
-		expectLPushV: []string{"job:job1:run:abc", "job:job2:run:abc"},
+		expectLPushV: []string{"run:abc"},
 	}
-}
-func (c *redisClientMock) Set(key string, value interface{}, expiration time.Duration) *redis.StatusCmd {
-	if i, ok := indexOf(c.expectSetK, key); ok {
-		if value != "abc" {
-			c.t.Errorf("Set: value = %v, expected abc", value)
-		}
-		if expiration != 0 {
-			c.t.Errorf("Set: expiration = %v, expected 0", expiration)
-		}
-		c.expectSetK = remove(c.expectSetK, i)
-	} else {
-		c.t.Errorf("Set: unexpected key %v", key)
-	}
-	return redis.NewStatusCmd()
 }
 func (c *redisClientMock) HSet(key string, values ...interface{}) *redis.IntCmd {
 	if i, ok := indexOf(c.expectHSetK, key); ok {
 		expectedValues := []string{}
 		switch c.expectHSetK[i] {
+		case "run:abc":
+			expectedValues = []string{"uid", "abc", "status", "PENDING"}
 		case "job:job1:run:abc":
 			expectedValues = []string{"name", "job1", "image", "busybox", "run", "exit 0", "status", "PENDING"}
 		case "job:job2:run:abc":
@@ -183,7 +169,7 @@ func (c *redisClientMock) SAdd(key string, members ...interface{}) *redis.IntCmd
 	return redis.NewIntCmd()
 }
 func (c *redisClientMock) LPush(key string, values ...interface{}) *redis.IntCmd {
-	if key != "jobs:work" {
+	if key != "runs:work" {
 		c.t.Errorf("LPush: unexpected key %v", key)
 	}
 	for _, val := range values {
@@ -203,21 +189,27 @@ func (c *redisClientMock) SMembers(key string) *redis.StringSliceCmd {
 		vals = append(vals, "run:abc")
 	case "jobs:run:abc":
 		vals = append(vals, "job:job1:run:abc", "job:job2:run:abc")
-	case "jobs:run:notfound":
 	default:
 		c.t.Errorf("SMembers: unexpected key %v", key)
 	}
 	return redis.NewStringSliceResult(vals, nil)
 }
-func (c *redisClientMock) Get(key string) *redis.StringCmd {
+func (c *redisClientMock) HGet(key, field string) *redis.StringCmd {
 	if key != "run:abc" {
-		c.t.Errorf("Get: unexpected key %v, expected run:abc", key)
+		c.t.Errorf("HGet: unexpected key %v, expected run:abc", key)
+	}
+	if field != "uid" {
+		c.t.Errorf("HGet: unexpected field %v, expected uid", field)
 	}
 	return redis.NewStringResult("abc", nil)
 }
 func (c *redisClientMock) HGetAll(key string) *redis.StringStringMapCmd {
 	vals := make(map[string]string)
 	switch key {
+	case "run:abc":
+		vals["uid"] = "abc"
+		vals["status"] = "RUNNING"
+	case "run:notfound":
 	case "job:job1:run:abc":
 		vals["name"] = "job1"
 		vals["image"] = "busybox"
@@ -227,7 +219,7 @@ func (c *redisClientMock) HGetAll(key string) *redis.StringStringMapCmd {
 		vals["name"] = "job2"
 		vals["image"] = "busybox"
 		vals["run"] = "exit 1"
-		vals["status"] = "WAITING"
+		vals["status"] = "PENDING"
 	default:
 		c.t.Errorf("HGetAll: unexpected key %v", key)
 	}
@@ -272,17 +264,17 @@ func TestSchedule(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if status["job1"] != "PENDING" {
-		t.Errorf("status[job1] = %v, expected PENDING", status["job1"])
+	if status.Run != "PENDING" {
+		t.Errorf("status.Run = %v, expected PENDING", status.Run)
 	}
-	if status["job2"] != "PENDING" {
-		t.Errorf("status[job2] = %v, expected PENDING", status["job1"])
+	if status.Jobs["job1"] != "PENDING" {
+		t.Errorf("status.Jobs[job1] = %v, expected PENDING", status.Jobs["job1"])
+	}
+	if status.Jobs["job2"] != "PENDING" {
+		t.Errorf("status.Jobs[job2] = %v, expected PENDING", status.Jobs["job1"])
 	}
 
 	client := s.client.(*redisClientMock)
-	if len(client.expectSetK) > 0 {
-		t.Errorf("missing calls to Set: %v", client.expectSetK)
-	}
 	if len(client.expectHSetK) > 0 {
 		t.Errorf("missing calls to HSet: %v", client.expectHSetK)
 	}
@@ -301,11 +293,14 @@ func TestStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if status["job1"] != "RUNNING" {
-		t.Errorf("status[job1] = %v, expected RUNNING", status["job1"])
+	if status.Run != "RUNNING" {
+		t.Errorf("status.Run = %v, expected RUNNING", status.Run)
 	}
-	if status["job2"] != "WAITING" {
-		t.Errorf("status[job2] = %v, expected WAITING", status["job2"])
+	if status.Jobs["job1"] != "RUNNING" {
+		t.Errorf("status.Jobs[job1] = %v, expected RUNNING", status.Jobs["job1"])
+	}
+	if status.Jobs["job2"] != "PENDING" {
+		t.Errorf("status.Jobs[job2] = %v, expected PENDING", status.Jobs["job2"])
 	}
 }
 
@@ -325,10 +320,13 @@ func TestStatusMap(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if statusMap["abc"]["job1"] != "RUNNING" {
-		t.Errorf("statusMap[abc][job1] = %v, expected RUNNING", statusMap["abc"]["job1"])
+	if statusMap["abc"].Run != "RUNNING" {
+		t.Errorf("statusMap[abc].Run = %v, expected RUNNING", statusMap["abc"].Run)
 	}
-	if statusMap["abc"]["job2"] != "WAITING" {
-		t.Errorf("statusMap[abc][job2] = %v, expected WAITING", statusMap["abc"]["job2"])
+	if statusMap["abc"].Jobs["job1"] != "RUNNING" {
+		t.Errorf("statusMap[abc].Jobs[job1] = %v, expected RUNNING", statusMap["abc"].Jobs["job1"])
+	}
+	if statusMap["abc"].Jobs["job2"] != "PENDING" {
+		t.Errorf("statusMap[abc].Jobs[job2] = %v, expected PENDING", statusMap["abc"].Jobs["job2"])
 	}
 }

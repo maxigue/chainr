@@ -14,21 +14,24 @@ import (
 	"github.com/Tyrame/chainr/sched/internal/httputil"
 )
 
+// Possible values for all status:
+// - PENDING
+// - RUNNING
+// - SUCCESSFUL
+// - FAILED
 type Run struct {
 	p Pipeline
 
-	Kind     string   `json:"kind"`
-	Metadata Metadata `json:"metadata"`
-	Status   Status   `json:"status"`
+	Kind       string            `json:"kind"`
+	Metadata   Metadata          `json:"metadata"`
+	Status     string            `json:"status"`
+	JobsStatus map[string]string `json:"jobsStatus"`
 }
 
 type Metadata struct {
 	SelfLink string `json:"selfLink"`
 	UID      string `json:"uid"`
 }
-
-// Status key is the job name, value is the status.
-type Status map[string]string
 
 // Creates a run from a pipeline.
 func New(p Pipeline) Run {
@@ -56,8 +59,9 @@ type RunListMetadata struct {
 }
 
 type RunListItem struct {
-	Metadata Metadata `json:"metadata"`
-	Status   Status   `json:"status"`
+	Metadata   Metadata          `json:"metadata"`
+	Status     string            `json:"status"`
+	JobsStatus map[string]string `json:"jobsStatus"`
 }
 
 func NewList(items map[string]Status) RunList {
@@ -82,7 +86,8 @@ func NewListItem(runUID string, status Status) RunListItem {
 			SelfLink: "/api/runs/" + runUID,
 			UID:      runUID,
 		},
-		Status: status,
+		Status:     status.Run,
+		JobsStatus: status.Jobs,
 	}
 }
 
@@ -154,7 +159,8 @@ func (h *runHandler) get(w http.ResponseWriter, runUID string) {
 			SelfLink: "/api/runs/" + runUID,
 			UID:      runUID,
 		},
-		Status: status,
+		Status:     status.Run,
+		JobsStatus: status.Jobs,
 	}
 
 	httputil.WriteResponse(w, run, http.StatusOK)
@@ -174,12 +180,15 @@ func (h *runHandler) post(w http.ResponseWriter, r *http.Request) {
 	}
 	run := New(p)
 
-	run.Status, err = h.sched.Schedule(run)
+	status, err := h.sched.Schedule(run)
 	if err != nil {
 		log.Println("Run scheduling failed:", err.Error())
 		httputil.WriteError(w, err, http.StatusInternalServerError)
 		return
 	}
+
+	run.Status = status.Run
+	run.JobsStatus = status.Jobs
 
 	httputil.WriteResponse(w, run, http.StatusAccepted)
 }
