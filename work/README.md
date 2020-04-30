@@ -3,9 +3,11 @@ The worker processes pending jobs, manages dependencies, runs jobs on Kubernetes
 
 ## Environment variables
 The configuration is read through the environment. The following variables can be overridden:
-- **PORT**: The port the server listens on. Default: `8080`.
+- **REDIS_ADDR**: The redis address, in the format `hostname` or `hostname:port`. Default: `redis:6379`.
+- **REDIS_PASSWORD**: The redis password. Default: `""` (no password).
+- **REDIS_DB**: The redis database. Default: `0` (default db).
 - **KUBECONFIG**: The kubeconfig file path. If not set , use the in-cluster configuration.  Default: `""`.
 
-## Pending jobs
-Pending jobs are read from redis on the `work:jobs` list, and matched with the corresponding redis key.
+## Behaviour
+Pending jobs are read from redis, and matched with the corresponding redis key.
 For more information on the format stored in redis, see the [redis](../docs/redis.md) documentation.
