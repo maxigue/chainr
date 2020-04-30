@@ -30,13 +30,15 @@ status: status: The job status.
 Status can be:
 ```
 - PENDING: The job has not been started yet.
+- SKIPPED: The job's dependencies conditions were not met, and the job was skipped.
 - RUNNING: The job is running on Kubernetes.
 - SUCCESSFUL: The job has completed successfully.
 - FAILED: The job has completed with an error.
 ```
 - **dependencies:job:\<name\>:run:\<uid\>**: Set containing all dependencies keys for a job.
-- **dependency:\<dep\>:job:\<name\>:run:\<uid\>**: Hash containing a single dependency for a job. `dep` is the jame of the dependency job. The hash contains the following fields:
+- **dependency:\<index\>:job:\<name\>:run:\<uid\>**: Hash containing a single dependency for a job. `index` is the index of the dependency job. The hash contains the following fields:
 ```
+job: string: Key of the dependency job.
 failure: true|false: If set to true, the job will only be run if the dependency fails. If set to false, the job will only be run if the dependency succeeds.
 ```
 - **runs:work**: List containing the pending runs, formatted as `run:<uid>`. This list is consumed by workers.

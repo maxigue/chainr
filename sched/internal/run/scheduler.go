@@ -85,8 +85,8 @@ func makeJobDependenciesKey(runUID string, jobName string) string {
 	return "dependencies:" + makeJobKey(runUID, jobName)
 }
 
-func makeJobDependencyKey(runUID string, jobName string, depName string) string {
-	return "dependency:" + depName + ":" + makeJobKey(runUID, jobName)
+func makeJobDependencyKey(runUID string, jobName string, depIndex int) string {
+	return "dependency:" + strconv.Itoa(depIndex) + ":" + makeJobKey(runUID, jobName)
 }
 
 // The Schedule method schedules the run for workers.
@@ -146,13 +146,17 @@ func (s RedisScheduler) scheduleJobs(runUID string, jobs map[string]Job) error {
 func (s RedisScheduler) scheduleDependencies(runUID string, jobName string, job Job) error {
 	depKeys := make([]interface{}, 0, len(job.DependsOn))
 
-	for _, dep := range job.DependsOn {
+	for i, dep := range job.DependsOn {
 		failure := "false"
 		if dep.Conditions.Failure {
 			failure = "true"
 		}
-		depKey := makeJobDependencyKey(runUID, jobName, dep.Job)
-		if err := s.client.HSet(depKey, "failure", failure).Err(); err != nil {
+		depKey := makeJobDependencyKey(runUID, jobName, i)
+		fields := []interface{}{
+			"job", makeJobKey(runUID, dep.Job),
+			"failure", failure,
+		}
+		if err := s.client.HSet(depKey, fields...).Err(); err != nil {
 			return err
 		}
 		depKeys = append(depKeys, depKey)

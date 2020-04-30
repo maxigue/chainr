@@ -104,8 +104,8 @@ func newRedisClientMock(t *testing.T) redis.Cmdable {
 			"run:abc",
 			"job:job1:run:abc",
 			"job:job2:run:abc",
-			"dependency:job1:job:job2:run:abc",
-			"dependency:job42:job:job2:run:abc",
+			"dependency:0:job:job2:run:abc",
+			"dependency:1:job:job2:run:abc",
 		},
 		expectSAddK: []string{
 			"runs",
@@ -125,10 +125,10 @@ func (c *redisClientMock) HSet(key string, values ...interface{}) *redis.IntCmd 
 			expectedValues = []string{"name", "job1", "image", "busybox", "run", "exit 0", "status", "PENDING"}
 		case "job:job2:run:abc":
 			expectedValues = []string{"name", "job2", "image", "busybox", "run", "exit 1", "status", "PENDING"}
-		case "dependency:job1:job:job2:run:abc":
-			expectedValues = []string{"failure", "true"}
-		case "dependency:job42:job:job2:run:abc":
-			expectedValues = []string{"failure", "false"}
+		case "dependency:0:job:job2:run:abc":
+			expectedValues = []string{"job", "job:job1:run:abc", "failure", "true"}
+		case "dependency:1:job:job2:run:abc":
+			expectedValues = []string{"job", "job:job42:run:abc", "failure", "false"}
 		}
 		vals := make([]string, len(values))
 		for i, v := range values {
@@ -153,7 +153,7 @@ func (c *redisClientMock) SAdd(key string, members ...interface{}) *redis.IntCmd
 			expectedValues = []string{"job:job1:run:abc", "job:job2:run:abc"}
 		case "dependencies:job:job1:run:abc":
 		case "dependencies:job:job2:run:abc":
-			expectedValues = []string{"dependency:job1:job:job2:run:abc", "dependency:job42:job:job2:run:abc"}
+			expectedValues = []string{"dependency:0:job:job2:run:abc", "dependency:1:job:job2:run:abc"}
 		}
 		vals := make([]string, len(members))
 		for i, v := range members {
