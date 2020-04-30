@@ -14,7 +14,7 @@ import (
 func TestNew(t *testing.T) {
 	s := New().(*RedisWorker)
 	client := s.client.(*redis.Client)
-	expected := "Redis<redis:6379 db:0>"
+	expected := "Redis<chainr-redis:6379 db:0>"
 	if client.String() != expected {
 		t.Errorf("client = %v, expected %v", client, expected)
 	}
@@ -51,7 +51,7 @@ func TestNewWithEnvError(t *testing.T) {
 	s := New().(*RedisWorker)
 	client := s.client.(*redis.Client)
 
-	expected := "Redis<redis:6379 db:0>"
+	expected := "Redis<chainr-redis:6379 db:0>"
 	if client.String() != expected {
 		t.Errorf("client = %v, expected %v", client, expected)
 	}

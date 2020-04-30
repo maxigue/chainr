@@ -11,7 +11,7 @@ import (
 func TestNewScheduler(t *testing.T) {
 	s := NewScheduler().(*RedisScheduler)
 	client := s.client.(*redis.Client)
-	expected := "Redis<redis:6379 db:0>"
+	expected := "Redis<chainr-redis:6379 db:0>"
 	if client.String() != expected {
 		t.Errorf("client = %v, expected %v", client, expected)
 	}
@@ -48,7 +48,7 @@ func TestNewSchedulerWithEnvError(t *testing.T) {
 	s := NewScheduler().(*RedisScheduler)
 	client := s.client.(*redis.Client)
 
-	expected := "Redis<redis:6379 db:0>"
+	expected := "Redis<chainr-redis:6379 db:0>"
 	if client.String() != expected {
 		t.Errorf("client = %v, expected %v", client, expected)
 	}

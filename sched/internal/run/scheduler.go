@@ -34,7 +34,7 @@ type RedisScheduler struct {
 }
 
 func NewScheduler() Scheduler {
-	addr := "redis:6379"
+	addr := "chainr-redis:6379"
 	password := ""
 	db := 0
 	if val, ok := os.LookupEnv("REDIS_ADDR"); ok {
