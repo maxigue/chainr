@@ -1,142 +1,338 @@
 // Package worker contains tools to interact with
-// the jobs store, and process jobs.
-// A worker consumes jobs, starts them on Kubernetes,
+// the runs store, and process runs.
+// A worker consumes runs, starts their jobs on Kubernetes,
 // monitors them and updates their status.
 package worker
 
 import (
+	"errors"
 	"log"
-	"os"
-	"strconv"
-
-	"github.com/go-redis/redis/v7"
+	"sync"
 )
 
-type Worker interface {
-	Start() error
+type Worker struct {
+	rs RunStore
+	cp CloudProvider
 }
 
-type RedisWorker struct {
-	client redis.Cmdable
+type RunStore interface {
+	// Actively listens to new runs, and when a new run is available,
+	// returns an arbitrary string identifier referencing it.
+	// This identifier is used to refer to the run in store operations.
+	NextRun() (string, error)
+
+	// Persists the run status in the store.
+	// Status can be:
+	// - PENDING
+	// - RUNNING
+	// - SUCCESSFUL
+	// - FAILED
+	// - CANCELED
+	SetRunStatus(runID, status string) error
+
+	// Returns a list of arbitrary string identifiers referencing all
+	// jobs contained in the run.
+	// A job identifier must be globally unique, meaning that "job1" from "run1"
+	// and "job1" from "run2" must have different identifiers.
+	GetJobs(runID string) ([]string, error)
+
+	// Returns the Job structure corresponding to the identifier.
+	GetJob(jobID string) (Job, error)
+
+	// Persists the job status in the store.
+	// Status can be:
+	// - PENDING
+	// - SKIPPED
+	// - RUNNING
+	// - SUCCESSFUL
+	// - FAILED
+	SetJobStatus(jobID, status string) error
+
+	// Returns a list of arbitrary string identifiers referencing all
+	// dependencies for the job.
+	// A dependency identifier must be globally unique.
+	GetJobDependencies(jobID string) ([]JobDependency, error)
+}
+
+type Job struct {
+	Image string
+	Run   string
+}
+
+type JobDependency struct {
+	JobID         string
+	ExpectFailure bool
+}
+
+type CloudProvider interface {
+	// Runs the job on the cloud provider.
+	// Blocks until the job completes.
+	RunJob(job Job) error
 }
 
 func New() Worker {
-	addr := "chainr-redis:6379"
-	password := ""
-	db := 0
-	if val, ok := os.LookupEnv("REDIS_ADDR"); ok {
-		addr = val
+	return Worker{
+		NewRedisRunStore(),
+		NewK8SCloudProvider(),
 	}
-	if val, ok := os.LookupEnv("REDIS_PASSWORD"); ok {
-		password = val
-	}
-	if val, ok := os.LookupEnv("REDIS_DB"); ok {
-		d, err := strconv.Atoi(val)
-		if err != nil {
-			log.Println("Invalid REDIS_DB value " + val + ", using default 0")
-			d = 0
-		}
-		db = d
-	}
-
-	client := redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-		DB:       db,
-	})
-
-	return &RedisWorker{client}
 }
 
-func (w RedisWorker) Start() error {
-	workQueue := "runs:work"
+type mutexedJobStatus struct {
+	L      sync.Locker
+	Status string
+}
 
-	for {
-		vals, err := w.client.BRPop(0, workQueue).Result()
-		if err != nil {
+type dependencyMap map[string](*mutexedJobStatus)
+
+func newDependencyMap(jobIDs []string) dependencyMap {
+	dm := make(dependencyMap)
+
+	for _, jobID := range jobIDs {
+		m := &sync.Mutex{}
+		m.Lock()
+		dm[jobID] = &mutexedJobStatus{m, "PENDING"}
+	}
+
+	return dm
+}
+
+// Wait for the job with identifier jobID to finish,
+// and return its status.
+func (dm dependencyMap) Wait(jobID string) string {
+	mjs, ok := dm[jobID]
+	if !ok {
+		log.Println("Wait: job", jobID, "was not found in the dependency tree")
+		return "FAILED"
+	}
+
+	mjs.L.Lock()
+	status := mjs.Status
+	mjs.L.Unlock()
+	return status
+}
+
+// Tells all the goroutines waiting for jobID that it completed with the given
+// status.
+func (dm dependencyMap) Broadcast(jobID, status string) {
+	mjs, ok := dm[jobID]
+	if !ok {
+		log.Println("Broadcast: job", jobID, "was not found in the dependency tree")
+		return
+	}
+
+	mjs.Status = status
+	mjs.L.Unlock()
+}
+
+// Returns the overall status of all jobs.
+// If at least one job fails, the overall status is failed.
+func (dm dependencyMap) Status() string {
+	for _, mjs := range dm {
+		if mjs.Status == "FAILED" {
+			return "FAILED"
+		}
+	}
+
+	return "SUCCESSFUL"
+}
+
+// Start launches the worker loop.
+// It stays running as long as there is no internal error while processing
+// the next run.
+// In case of internal error, it waits for all running goroutines to finish.
+func (w Worker) Start() error {
+	var wg sync.WaitGroup
+
+	var err error = nil
+	for err == nil {
+		err = w.ProcessNextRun(&wg)
+	}
+
+	wg.Wait()
+	return err
+}
+
+// ProcessNextRun is a blocking function, listening for a new run,
+// and processing it in a goroutine.
+func (w Worker) ProcessNextRun(wg *sync.WaitGroup) error {
+	runID, err := w.rs.NextRun()
+	if err != nil {
+		return err
+	}
+
+	wg.Add(1)
+	go w.processRun(wg, runID)
+	return nil
+}
+
+// ProcessRun blocks until the run is completed.
+// It should be called in a specific goroutine.
+func (w Worker) processRun(rwg *sync.WaitGroup, runID string) {
+	defer rwg.Done()
+
+	status := "CANCELED"
+	defer func() { w.setRunStatus(runID, status) }()
+
+	jobIDs, err := w.rs.GetJobs(runID)
+	if err != nil {
+		log.Println("Unable to get run", runID, "jobs:", err.Error())
+		status = "FAILED"
+		return
+	}
+
+	if err := w.checkDependencyTree(jobIDs); err != nil {
+		log.Printf("Dependency tree check failed: %v", err.Error())
+		status = "FAILED"
+		return
+	}
+
+	log.Println("Starting run", runID)
+	if err := w.rs.SetRunStatus(runID, "RUNNING"); err != nil {
+		log.Println("Unable to set run", runID, "status to RUNNING:", err.Error())
+		status = "FAILED"
+		return
+	}
+
+	dm := newDependencyMap(jobIDs)
+	var jwg sync.WaitGroup
+	for _, jobID := range jobIDs {
+		jwg.Add(1)
+		go w.processJob(&jwg, dm, jobID)
+	}
+	jwg.Wait()
+
+	status = dm.Status()
+}
+
+// SetRunStatus update the run status in the run store,
+// and manages status updates on recovery, to indicate that the run failed.
+// Note that on recovery, only the run status is updated. If the run status is
+// CANCELED, one can assume that something went wrong on the server during run
+// processing.
+func (w Worker) setRunStatus(runID, status string) {
+	r := recover()
+	if r != nil {
+		log.Println("Run", runID, "processing was interrupted by a panic:", r)
+	}
+
+	log.Println("Run", runID, "completed with status", status)
+	if err := w.rs.SetRunStatus(runID, status); err != nil {
+		log.Printf("Unable to set run %v status to %v: %v", runID, status, err.Error())
+	}
+
+	if r != nil {
+		panic(r)
+	}
+}
+
+func (w Worker) checkDependencyTree(jobIDs []string) error {
+	for _, jobID := range jobIDs {
+		if err := w.checkDependencyPath([]string{}, jobID, jobIDs); err != nil {
 			return err
 		}
-
-		go w.process(vals[1])
 	}
 
 	return nil
 }
 
-func (w RedisWorker) process(runKey string) {
-	defer w.recover(runKey)
-
-	if err := w.startRun(runKey); err != nil {
-		log.Println("Run", runKey, "failed:", err.Error())
-	}
-}
-
-func (w RedisWorker) startRun(runKey string) error {
-	log.Println("Starting run", runKey)
-
-	if err := w.client.HSet(runKey, "status", "RUNNING").Err(); err != nil {
-		return err
-	}
-
-	runUID, err := w.client.HGet(runKey, "uid").Result()
+func (w Worker) checkDependencyPath(path []string, jobID string, jobIDs []string) error {
+	deps, err := w.rs.GetJobDependencies(jobID)
 	if err != nil {
 		return err
 	}
 
-	runJobsKey := "jobs:run:" + runUID
-	jobKeys, err := w.client.SMembers(runJobsKey).Result()
-	if err != nil {
-		return err
-	}
+	for _, dep := range deps {
+		if !contains(jobIDs, dep.JobID) {
+			return errors.New("job " + dep.JobID + " was not found in the dependency tree")
+		}
 
-	for _, jobKey := range jobKeys {
-		if err := w.startJob(jobKey); err != nil {
+		if contains(path, dep.JobID) {
+			return errors.New("dependency loop found in job " + dep.JobID)
+		}
+
+		subPath := make([]string, len(path), len(path)+1)
+		copy(subPath, path)
+		subPath = append(subPath, jobID)
+		if err := w.checkDependencyPath(subPath, dep.JobID, jobIDs); err != nil {
 			return err
 		}
 	}
+
+	return nil
+}
+
+func contains(arr []string, val string) bool {
+	for _, v := range arr {
+		if v == val {
+			return true
+		}
+	}
+	return false
+}
+
+func (w Worker) processJob(wg *sync.WaitGroup, dm dependencyMap, jobID string) {
+	defer wg.Done()
 
 	status := "SUCCESSFUL"
+	defer func() {
+		log.Println("Job", jobID, "completed with status", status)
+		if err := w.rs.SetJobStatus(jobID, status); err != nil {
+			log.Printf("Unable to set job %v status to %v: %v", jobID, status, err.Error())
+		}
+		dm.Broadcast(jobID, status)
+	}()
 
-	if err := w.client.HSet(runKey, "status", status).Err(); err != nil {
+	if err := w.waitJobDependencies(jobID, dm); err != nil {
+		log.Println("Conditions for job", jobID, "are not met:", err.Error())
+		status = "SKIPPED"
+		return
+	}
+
+	if err := w.runJob(jobID); err != nil {
+		log.Println("Job", jobID, "failed:", err.Error())
+		status = "FAILED"
+	}
+}
+
+func (w Worker) waitJobDependencies(jobID string, dm dependencyMap) error {
+	deps, err := w.rs.GetJobDependencies(jobID)
+	if err != nil {
 		return err
 	}
-	log.Println("Run", runKey, "completed with status", status)
+
+	for _, dep := range deps {
+		status := dm.Wait(dep.JobID)
+		if status == "SKIPPED" {
+			return errors.New("dependency " + dep.JobID + " was skipped")
+		}
+		if status != "SUCCESSFUL" && !dep.ExpectFailure {
+			return errors.New("dependency " + dep.JobID + " failed")
+		}
+		if status == "SUCCESSFUL" && dep.ExpectFailure {
+			return errors.New("dependency " + dep.JobID + " did not fail")
+		}
+	}
 
 	return nil
 }
 
-func (w RedisWorker) startJob(jobKey string) error {
-	job, err := w.client.HGetAll(jobKey).Result()
+func (w Worker) runJob(jobID string) error {
+	job, err := w.rs.GetJob(jobID)
 	if err != nil {
 		return err
 	}
 
 	log.Printf(`Starting job %v
 	image: %v
-	run: %v`, jobKey, job["image"], job["run"])
+	run: %v`, jobID, job.Image, job.Run)
 
-	if err := w.client.HSet(jobKey, "status", "RUNNING").Err(); err != nil {
+	if err := w.rs.SetJobStatus(jobID, "RUNNING"); err != nil {
 		return err
 	}
 
-	// TODO: run and monitor
-
-	status := "SUCCESSFUL"
-
-	if err := w.client.HSet(jobKey, "status", status).Err(); err != nil {
+	if err := w.cp.RunJob(job); err != nil {
 		return err
 	}
-	log.Println("Job", jobKey, "completed with status", status)
 
 	return nil
-}
-
-func (w RedisWorker) recover(runKey string) {
-	if r := recover(); r != nil {
-		log.Println("Run", runKey, "processing was interrupted by a panic:", r)
-		if err := w.client.HSet(runKey, "status", "CANCELED").Err(); err != nil {
-			log.Println("Unable to set run", runKey, "status to CANCELED")
-		}
-		panic(r)
-	}
 }

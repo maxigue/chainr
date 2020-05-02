@@ -5,155 +5,434 @@ import (
 	"testing"
 
 	"errors"
-	"os"
-	"time"
-
-	"github.com/go-redis/redis/v7"
+	"sync"
 )
 
+// As the worker mostly works as a black box,
+// most tests in this file are written with stubs.
+// To embed inline documentation on the behaviour,
+// behaviour-driven testing is still present, despite
+// not being perfectly suited.
+
+// New should not panic.
 func TestNew(t *testing.T) {
-	s := New().(*RedisWorker)
-	client := s.client.(*redis.Client)
-	expected := "Redis<chainr-redis:6379 db:0>"
-	if client.String() != expected {
-		t.Errorf("client = %v, expected %v", client, expected)
-	}
+	_ = New()
 }
 
-func TestNewWithEnv(t *testing.T) {
-	if err := os.Setenv("REDIS_ADDR", "test:1234"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_ADDR")
-	if err := os.Setenv("REDIS_PASSWORD", "passw0rd"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_PASSWORD")
-	if err := os.Setenv("REDIS_DB", "1"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_DB")
-	s := New().(*RedisWorker)
-	client := s.client.(*redis.Client)
+type brokenRunStoreStub struct{}
 
-	expected := "Redis<test:1234 db:1>"
-	if client.String() != expected {
-		t.Errorf("client = %v, expected %v", client, expected)
-	}
+func (rs brokenRunStoreStub) NextRun() (string, error) {
+	return "", errors.New("failed")
+}
+func (rs brokenRunStoreStub) SetRunStatus(runId, status string) error {
+	return nil
+}
+func (rs brokenRunStoreStub) GetJobs(runID string) ([]string, error) {
+	return []string{}, nil
+}
+func (rs brokenRunStoreStub) GetJob(jobID string) (Job, error) {
+	return Job{}, nil
+}
+func (rs brokenRunStoreStub) SetJobStatus(jobID, status string) error {
+	return nil
+}
+func (rs brokenRunStoreStub) GetJobDependencies(jobID string) ([]JobDependency, error) {
+	return []JobDependency{}, nil
 }
 
-// In case of error reading the redis database, the default database is used.
-func TestNewWithEnvError(t *testing.T) {
-	if err := os.Setenv("REDIS_DB", "test"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_DB")
-	s := New().(*RedisWorker)
-	client := s.client.(*redis.Client)
+func TestStartError(t *testing.T) {
+	Convey("Scenario: the runs can not be retrieved", t, func() {
+		Convey("Given the worker can not access the runs queue", func() {
+			w := Worker{&brokenRunStoreStub{}, &cloudProviderStub{}}
 
-	expected := "Redis<chainr-redis:6379 db:0>"
-	if client.String() != expected {
-		t.Errorf("client = %v, expected %v", client, expected)
-	}
-}
+			Convey("When the worker tries to process the next run", func() {
+				err := w.Start()
 
-type redisClientMock struct {
-	t           *testing.T
-	popI        int
-	expectHSetK []string
-	*redis.Client
-}
-
-func newRedisClientMock(t *testing.T) redis.Cmdable {
-	return &redisClientMock{
-		t:    t,
-		popI: 0,
-		expectHSetK: []string{
-			"run:abc",
-			"job:job1:run:abc",
-			"job:job2:run:abc",
-		},
-	}
-}
-func (c *redisClientMock) BRPop(timeout time.Duration, keys ...string) *redis.StringSliceCmd {
-	// Fail on second call, to avoid infinite loop.
-	if c.popI > 0 {
-		return redis.NewStringSliceResult(nil, errors.New("fail"))
-	}
-	c.popI++
-
-	if timeout != 0 {
-		c.t.Errorf("BRPop should block indefinitely")
-	}
-	if len(keys) != 1 || keys[0] != "runs:work" {
-		c.t.Errorf("BRPop listens on %v, expected runs:work", keys[0])
-	}
-
-	vals := []string{
-		"runs:work",
-		"run:abc",
-	}
-	return redis.NewStringSliceResult(vals, nil)
-}
-func (c *redisClientMock) HSet(key string, values ...interface{}) *redis.IntCmd {
-	// TODO: implement mock
-	return redis.NewIntCmd()
-}
-func (c *redisClientMock) HGet(key, field string) *redis.StringCmd {
-	if key != "run:abc" {
-		c.t.Errorf("HGet: key = %v, expected run:abc", key)
-	}
-	if field != "uid" {
-		c.t.Errorf("HGet: field = %v, expected uid", field)
-	}
-	return redis.NewStringResult("abc", nil)
-}
-func (c *redisClientMock) HGetAll(key string) *redis.StringStringMapCmd {
-	vals := make(map[string]string)
-	switch key {
-	case "job:job1:run:abc":
-		vals["name"] = "job1"
-		vals["image"] = "busybox"
-		vals["run"] = "exit 0"
-		vals["status"] = "PENDING"
-	case "job:job2:run:abc":
-		vals["name"] = "job2"
-		vals["image"] = "busybox"
-		vals["run"] = "exit 1"
-		vals["status"] = "PENDING"
-	default:
-		c.t.Errorf("HGetAll: unexpected key %v", key)
-	}
-
-	return redis.NewStringStringMapResult(vals, nil)
-}
-func (c *redisClientMock) SMembers(key string) *redis.StringSliceCmd {
-	vals := make([]string, 0)
-	switch key {
-	case "jobs:run:abc":
-		vals = append(vals, "job:job1:run:abc", "job:job2:run:abc")
-	default:
-		c.t.Errorf("SMembers: unexpected key %v", key)
-	}
-	return redis.NewStringSliceResult(vals, nil)
-}
-
-func TestStart(t *testing.T) {
-	w := RedisWorker{newRedisClientMock(t)}
-	_ = w.Start()
-
-	Convey("Scenario: process a run", t, func() {
-		Convey("Given a run is scheduled", func() {
-			Convey("The run should be set to status RUNNING", nil)
+				Convey("The worker should stop its loop with an error to avoid spamming", func() {
+					So(err.Error(), ShouldEqual, "failed")
+				})
+			})
 		})
+	})
+}
 
-		Convey("And there are no dependencies", func() {
-			Convey("All jobs should be set to status RUNNING", nil)
-			Convey("All jobs should be started on Kubernetes", nil)
+type runStoreDepMock struct {
+	t             *testing.T
+	setRunStatusI int
+	setJobStatusI int
+}
 
-			Convey("When the run succeeds", func() {
-				Convey("All jobs should be set to status SUCCESSFUL", nil)
-				Convey("The run should be set to status SUCCESSFUL", nil)
+func (rs *runStoreDepMock) NextRun() (string, error) {
+	return "run:abc", nil
+}
+func (rs *runStoreDepMock) SetRunStatus(runId, status string) error {
+	expectedStatus := ""
+
+	switch rs.setRunStatusI {
+	case 0:
+		expectedStatus = "RUNNING"
+	case 1:
+		expectedStatus = "SUCCESSFUL"
+	}
+
+	if status != expectedStatus {
+		rs.t.Errorf("SetRunStatus = %v, expected %v", status, expectedStatus)
+	}
+
+	rs.setRunStatusI++
+	return nil
+}
+func (rs *runStoreDepMock) GetJobs(runID string) ([]string, error) {
+	return []string{"job:job1:run:abc", "job:dep1:run:abc"}, nil
+}
+func (rs *runStoreDepMock) GetJob(jobID string) (Job, error) {
+	return Job{"busybox", "exit 0"}, nil
+}
+func (rs *runStoreDepMock) SetJobStatus(jobID, status string) error {
+	expectedStatus := ""
+
+	switch rs.setJobStatusI {
+	case 0:
+		expectedStatus = "RUNNING"
+	case 1:
+		expectedStatus = "SUCCESSFUL"
+	case 2:
+		expectedStatus = "RUNNING"
+	case 3:
+		expectedStatus = "SUCCESSFUL"
+	}
+
+	if status != expectedStatus {
+		rs.t.Errorf("SetJobStatus = %v, expected %v", status, expectedStatus)
+	}
+
+	rs.setJobStatusI++
+	return nil
+}
+func (rs *runStoreDepMock) GetJobDependencies(jobID string) ([]JobDependency, error) {
+	deps := []JobDependency{}
+
+	if jobID == "job:job1:run:abc" {
+		deps = append(deps, JobDependency{"job:dep1:run:abc", false})
+	}
+
+	return deps, nil
+}
+
+type cloudProviderStub struct{}
+
+func (cp cloudProviderStub) RunJob(job Job) error {
+	return nil
+}
+
+func TestProcessNextRun(t *testing.T) {
+	Convey("Scenario: process a valid run", t, func() {
+		Convey("Given a run is processed", func() {
+			Convey("When its dependency tree is valid, and everything goes well", func() {
+				Convey("The worker should run each job according to the dependency tree, and set statuses to SUCCESSFUL", func() {
+					w := Worker{&runStoreDepMock{t: t}, &cloudProviderStub{}}
+					var wg sync.WaitGroup
+					w.ProcessNextRun(&wg)
+					wg.Wait()
+				})
+			})
+		})
+	})
+}
+
+type runStoreFailureMock struct {
+	t             *testing.T
+	setRunStatusI int
+	setJobStatusI int
+}
+
+func (rs *runStoreFailureMock) NextRun() (string, error) {
+	return "run:abc", nil
+}
+func (rs *runStoreFailureMock) SetRunStatus(runId, status string) error {
+	expectedStatus := ""
+
+	switch rs.setRunStatusI {
+	case 0:
+		expectedStatus = "RUNNING"
+	case 1:
+		expectedStatus = "FAILED"
+	}
+
+	if status != expectedStatus {
+		rs.t.Errorf("SetRunStatus = %v, expected %v", status, expectedStatus)
+	}
+
+	rs.setRunStatusI++
+	return nil
+}
+func (rs *runStoreFailureMock) GetJobs(runID string) ([]string, error) {
+	return []string{"job:job1:run:abc", "job:dep1:run:abc"}, nil
+}
+func (rs *runStoreFailureMock) GetJob(jobID string) (Job, error) {
+	if jobID == "job:dep1:run:abc" {
+		return Job{"busybox", "exit 1"}, nil
+	}
+	return Job{"busybox", "exit 0"}, nil
+}
+func (rs *runStoreFailureMock) SetJobStatus(jobID, status string) error {
+	expectedStatus := ""
+
+	switch rs.setJobStatusI {
+	case 0:
+		expectedStatus = "RUNNING"
+	case 1:
+		expectedStatus = "FAILED"
+	case 2:
+		expectedStatus = "RUNNING"
+	case 3:
+		expectedStatus = "SUCCESSFUL"
+	}
+
+	if status != expectedStatus {
+		rs.t.Errorf("SetJobStatus = %v, expected %v", status, expectedStatus)
+	}
+
+	rs.setJobStatusI++
+	return nil
+}
+func (rs *runStoreFailureMock) GetJobDependencies(jobID string) ([]JobDependency, error) {
+	deps := []JobDependency{}
+
+	if jobID == "job:job1:run:abc" {
+		deps = append(deps, JobDependency{"job:dep1:run:abc", true})
+	}
+
+	return deps, nil
+}
+
+type cloudProviderFailureStub struct{}
+
+func (cp cloudProviderFailureStub) RunJob(job Job) error {
+	if job.Run == "exit 1" {
+		return errors.New("failure")
+	}
+	return nil
+}
+
+func TestProcessNextRunFailure(t *testing.T) {
+	Convey("Scenario: process run with failed jobs", t, func() {
+		Convey("Given a run is processed", func() {
+			Convey("When a job fails in the dependency tree", func() {
+				Convey("Subsequent jobs should be run if expecting a failure", func() {
+					Convey("And run should be set as failed", func() {
+						w := Worker{&runStoreFailureMock{t: t}, &cloudProviderFailureStub{}}
+						var wg sync.WaitGroup
+						w.ProcessNextRun(&wg)
+						wg.Wait()
+					})
+				})
+			})
+		})
+	})
+}
+
+type runStoreSkippedMock struct {
+	t             *testing.T
+	setRunStatusI int
+	setJobStatusI int
+}
+
+func (rs *runStoreSkippedMock) NextRun() (string, error) {
+	return "run:abc", nil
+}
+func (rs *runStoreSkippedMock) SetRunStatus(runId, status string) error {
+	expectedStatus := ""
+
+	switch rs.setRunStatusI {
+	case 0:
+		expectedStatus = "RUNNING"
+	case 1:
+		expectedStatus = "SUCCESSFUL"
+	}
+
+	if status != expectedStatus {
+		rs.t.Errorf("SetRunStatus = %v, expected %v", status, expectedStatus)
+	}
+
+	rs.setRunStatusI++
+	return nil
+}
+func (rs *runStoreSkippedMock) GetJobs(runID string) ([]string, error) {
+	return []string{"job:job1:run:abc", "job:dep1:run:abc", "job:dep2:run:abc"}, nil
+}
+func (rs *runStoreSkippedMock) GetJob(jobID string) (Job, error) {
+	return Job{"busybox", "exit 0"}, nil
+}
+func (rs *runStoreSkippedMock) SetJobStatus(jobID, status string) error {
+	expectedStatus := ""
+
+	switch rs.setJobStatusI {
+	case 0:
+		expectedStatus = "RUNNING"
+	case 1:
+		expectedStatus = "SUCCESSFUL"
+	case 2:
+		expectedStatus = "SKIPPED"
+	case 3:
+		expectedStatus = "SKIPPED"
+	}
+
+	if status != expectedStatus {
+		rs.t.Errorf("SetJobStatus on %v = %v, expected %v", jobID, status, expectedStatus)
+	}
+
+	rs.setJobStatusI++
+	return nil
+}
+func (rs *runStoreSkippedMock) GetJobDependencies(jobID string) ([]JobDependency, error) {
+	deps := []JobDependency{}
+
+	switch jobID {
+	case "job:job1:run:abc":
+		deps = append(deps, JobDependency{"job:dep1:run:abc", false})
+	case "job:dep1:run:abc":
+		deps = append(deps, JobDependency{"job:dep2:run:abc", true})
+	}
+
+	return deps, nil
+}
+
+func TestProcessNextRunSkipped(t *testing.T) {
+	Convey("Scenario: process run with skipped jobs", t, func() {
+		Convey("Given a run is processed", func() {
+			Convey("When the dependency tree contains jobs whose conditions are not met", func() {
+				Convey("The jobs, and all subsequent jobs in the branch, should be skipped", func() {
+					w := Worker{&runStoreSkippedMock{t: t}, &cloudProviderStub{}}
+					var wg sync.WaitGroup
+					w.ProcessNextRun(&wg)
+					wg.Wait()
+				})
+			})
+		})
+	})
+}
+
+type runStoreNotFoundMock struct {
+	t             *testing.T
+	setRunStatusI int
+}
+
+func (rs *runStoreNotFoundMock) NextRun() (string, error) {
+	return "run:abc", nil
+}
+func (rs *runStoreNotFoundMock) SetRunStatus(runId, status string) error {
+	expectedStatus := ""
+
+	switch rs.setRunStatusI {
+	case 0:
+		expectedStatus = "FAILED"
+	}
+
+	if status != expectedStatus {
+		rs.t.Errorf("SetRunStatus = %v, expected %v", status, expectedStatus)
+	}
+
+	rs.setRunStatusI++
+	return nil
+}
+func (rs *runStoreNotFoundMock) GetJobs(runID string) ([]string, error) {
+	return []string{"job:job1:run:abc"}, nil
+}
+func (rs *runStoreNotFoundMock) GetJob(jobID string) (Job, error) {
+	return Job{"busybox", "exit 0"}, nil
+}
+func (rs *runStoreNotFoundMock) SetJobStatus(jobID, status string) error {
+	rs.t.Errorf("SetJobStatus should not have been called")
+	return nil
+}
+func (rs *runStoreNotFoundMock) GetJobDependencies(jobID string) ([]JobDependency, error) {
+	return []JobDependency{
+		JobDependency{"job:dep1:run:abc", false},
+	}, nil
+}
+
+func TestProcessNextRunNotFound(t *testing.T) {
+	Convey("Scenario: process run with not found dependencies", t, func() {
+		Convey("Given a run is processed", func() {
+			Convey("When the run contains references to unknown dependencies", func() {
+				Convey("The run should be set to FAILED, and its jobs should not be run", func() {
+					w := Worker{&runStoreNotFoundMock{t: t}, &cloudProviderStub{}}
+					var wg sync.WaitGroup
+					w.ProcessNextRun(&wg)
+					wg.Wait()
+				})
+			})
+		})
+	})
+}
+
+type runStoreDepLoopMock struct {
+	t             *testing.T
+	setRunStatusI int
+}
+
+func (rs *runStoreDepLoopMock) NextRun() (string, error) {
+	return "run:abc", nil
+}
+func (rs *runStoreDepLoopMock) SetRunStatus(runId, status string) error {
+	expectedStatus := ""
+
+	switch rs.setRunStatusI {
+	case 0:
+		expectedStatus = "FAILED"
+	}
+
+	if status != expectedStatus {
+		rs.t.Errorf("SetRunStatus = %v, expected %v", status, expectedStatus)
+	}
+
+	rs.setRunStatusI++
+	return nil
+}
+func (rs *runStoreDepLoopMock) GetJobs(runID string) ([]string, error) {
+	return []string{
+		"job:job1:run:abc",
+		"job:job2:run:abc",
+		"job:job3:run:abc",
+		"job:job4:run:abc",
+	}, nil
+}
+func (rs *runStoreDepLoopMock) GetJob(jobID string) (Job, error) {
+	return Job{"busybox", "exit 0"}, nil
+}
+func (rs *runStoreDepLoopMock) SetJobStatus(jobID, status string) error {
+	rs.t.Errorf("SetJobStatus should not have been called")
+	return nil
+}
+func (rs *runStoreDepLoopMock) GetJobDependencies(jobID string) ([]JobDependency, error) {
+	deps := []JobDependency{}
+
+	switch jobID {
+	case "job:job1:run:abc":
+		deps = append(deps, JobDependency{"job:job4:run:abc", false})
+	case "job:job2:run:abc":
+		deps = append(deps, JobDependency{"job:job1:run:abc", false})
+	case "job:job3:run:abc":
+		deps = append(deps, JobDependency{"job:job1:run:abc", false})
+	case "job:job4:run:abc":
+		deps = append(deps, JobDependency{"job:job2:run:abc", false})
+		deps = append(deps, JobDependency{"job:job3:run:abc", false})
+	}
+
+	return deps, nil
+}
+
+func TestProcessNextRunDepLoop(t *testing.T) {
+	Convey("Scenario: process run with dependency loop", t, func() {
+		Convey("Given a run is processed", func() {
+			Convey("When the run has a loop in its dependencies", func() {
+				Convey("The run should be set to FAILED, and its jobs should not be run", func() {
+					w := Worker{&runStoreDepLoopMock{t: t}, &cloudProviderStub{}}
+					var wg sync.WaitGroup
+					w.ProcessNextRun(&wg)
+					wg.Wait()
+				})
 			})
 		})
 	})
