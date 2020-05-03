@@ -16,30 +16,46 @@ The following use cases can be considered:
 - **Job**: A Job is the execution unit. It starts a docker container on Kubernetes and runs commands inside.
 - **Run**: A Run allows to follow the status of a scheduled pipeline.
 
-## Example
-The following YAML is a representation of a basic pipeline, containing two jobs run in parallel. The first job triggers a different job in case of success or error.
+## Installing
+Clone the repository, make sure to have kubectl installed and pointing to your target namespace, and run `make deploy`.
+The default ingress host is `chainr.minikube`. It can be overridden in sched's [values.yaml](sched/deployments/helm/sched/values.yaml).
+Alternatively, the service type can be set to `NodePort`.
 
-```yaml
-kind: Pipeline
-jobs:
-  first:
-    image: busybox
-    run: exit 0
-  second:
-    image: busybox
-    run: exit 0
-  success:
-    dependsOn:
-      - job: first
-    image: busybox
-    run: exit 0
-  error:
-    dependsOn:
-      - job: first
-        conditions:
-          failure: true
-    image: busybox
-    run: exit 0
+## Example
+The following JSON is a representation of a basic pipeline, containing two jobs run in parallel. The first job triggers a different job in case of success or error.
+To schedule the pipeline, it can be sent as data to `POST /api/runs`.
+
+```json
+{
+  "kind": "Pipeline",
+  "jobs": {
+    "first": {
+      "image": "busybox",
+      "run": "exit 0"
+    },
+    "second": {
+      "image": "busybox",
+      "run": "exit 0"
+    },
+    "success": {
+      "dependsOn": [{
+        "job": "first"
+      }],
+      "image": "busybox",
+      "run": "exit 0"
+    },
+    "error": {
+      "dependsOn": [{
+        "job": "first",
+        "conditions": {
+          "failure": true
+        }
+      }],
+      "image": "busybox",
+      "run": "exit 0"
+    }
+  }
+}
 ```
 
 ## Architecture
