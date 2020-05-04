@@ -124,9 +124,10 @@ func (cp K8SCloudProvider) makeK8SJob(job Job) batchv1.Job {
 	k8sJob.Spec.Template.Labels = labels
 	k8sJob.Spec.Template.Spec.Containers = []corev1.Container{
 		corev1.Container{
-			Name:    job.Name,
-			Image:   job.Image,
-			Command: []string{"sh", "-c", job.Run},
+			Name:            job.Name,
+			Image:           job.Image,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Command:         []string{"sh", "-c", job.Run},
 		},
 	}
 	k8sJob.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyNever
