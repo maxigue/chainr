@@ -67,6 +67,7 @@ func (rs RedisRunStore) GetJob(jobKey string) (Job, error) {
 	}
 
 	return Job{
+		job["name"],
 		job["image"],
 		job["run"],
 	}, nil

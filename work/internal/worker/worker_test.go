@@ -14,11 +14,6 @@ import (
 // behaviour-driven testing is still present, despite
 // not being perfectly suited.
 
-// New should not panic.
-func TestNew(t *testing.T) {
-	_ = New()
-}
-
 type brokenRunStoreStub struct{}
 
 func (rs brokenRunStoreStub) NextRun() (string, error) {
@@ -86,7 +81,7 @@ func (rs *runStoreDepMock) GetJobs(runID string) ([]string, error) {
 	return []string{"job:job1:run:abc", "job:dep1:run:abc"}, nil
 }
 func (rs *runStoreDepMock) GetJob(jobID string) (Job, error) {
-	return Job{"busybox", "exit 0"}, nil
+	return Job{"", "busybox", "exit 0"}, nil
 }
 func (rs *runStoreDepMock) SetJobStatus(jobID, status string) error {
 	expectedStatus := ""
@@ -171,9 +166,9 @@ func (rs *runStoreFailureMock) GetJobs(runID string) ([]string, error) {
 }
 func (rs *runStoreFailureMock) GetJob(jobID string) (Job, error) {
 	if jobID == "job:dep1:run:abc" {
-		return Job{"busybox", "exit 1"}, nil
+		return Job{"", "busybox", "exit 1"}, nil
 	}
-	return Job{"busybox", "exit 0"}, nil
+	return Job{"", "busybox", "exit 0"}, nil
 }
 func (rs *runStoreFailureMock) SetJobStatus(jobID, status string) error {
 	expectedStatus := ""
@@ -262,7 +257,7 @@ func (rs *runStoreSkippedMock) GetJobs(runID string) ([]string, error) {
 	return []string{"job:job1:run:abc", "job:dep1:run:abc", "job:dep2:run:abc"}, nil
 }
 func (rs *runStoreSkippedMock) GetJob(jobID string) (Job, error) {
-	return Job{"busybox", "exit 0"}, nil
+	return Job{"", "busybox", "exit 0"}, nil
 }
 func (rs *runStoreSkippedMock) SetJobStatus(jobID, status string) error {
 	expectedStatus := ""
@@ -340,7 +335,7 @@ func (rs *runStoreNotFoundMock) GetJobs(runID string) ([]string, error) {
 	return []string{"job:job1:run:abc"}, nil
 }
 func (rs *runStoreNotFoundMock) GetJob(jobID string) (Job, error) {
-	return Job{"busybox", "exit 0"}, nil
+	return Job{"", "busybox", "exit 0"}, nil
 }
 func (rs *runStoreNotFoundMock) SetJobStatus(jobID, status string) error {
 	rs.t.Errorf("SetJobStatus should not have been called")
@@ -399,7 +394,7 @@ func (rs *runStoreDepLoopMock) GetJobs(runID string) ([]string, error) {
 	}, nil
 }
 func (rs *runStoreDepLoopMock) GetJob(jobID string) (Job, error) {
-	return Job{"busybox", "exit 0"}, nil
+	return Job{"", "busybox", "exit 0"}, nil
 }
 func (rs *runStoreDepLoopMock) SetJobStatus(jobID, status string) error {
 	rs.t.Errorf("SetJobStatus should not have been called")

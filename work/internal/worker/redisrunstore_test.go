@@ -201,6 +201,9 @@ func TestGetJob(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if job.Name != "job1" {
+		t.Errorf("job.Name = %v, expected job1", job.Name)
+	}
 	if job.Image != "busybox" {
 		t.Errorf("job.Image = %v, expected busybox", job.Image)
 	}

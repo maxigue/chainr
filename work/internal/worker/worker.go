@@ -55,6 +55,7 @@ type RunStore interface {
 }
 
 type Job struct {
+	Name  string
 	Image string
 	Run   string
 }
@@ -323,8 +324,9 @@ func (w Worker) runJob(jobID string) error {
 	}
 
 	log.Printf(`Starting job %v
+	name: %v
 	image: %v
-	run: %v`, jobID, job.Image, job.Run)
+	run: %v`, jobID, job.Name, job.Image, job.Run)
 
 	if err := w.rs.SetJobStatus(jobID, "RUNNING"); err != nil {
 		return err
