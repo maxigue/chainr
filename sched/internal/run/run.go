@@ -28,15 +28,20 @@ import (
 type Run struct {
 	p Pipeline
 
-	Kind       string            `json:"kind"`
-	Metadata   Metadata          `json:"metadata"`
-	Status     string            `json:"status"`
-	JobsStatus map[string]string `json:"jobsStatus"`
+	Kind     string   `json:"kind"`
+	Metadata Metadata `json:"metadata"`
+	Status   string   `json:"status"`
+	Jobs     []RunJob `json:"jobs"`
 }
 
 type Metadata struct {
 	SelfLink string `json:"selfLink"`
 	UID      string `json:"uid"`
+}
+
+type RunJob struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
 }
 
 // Creates a run from a pipeline.
@@ -65,12 +70,12 @@ type RunListMetadata struct {
 }
 
 type RunListItem struct {
-	Metadata   Metadata          `json:"metadata"`
-	Status     string            `json:"status"`
-	JobsStatus map[string]string `json:"jobsStatus"`
+	Metadata Metadata `json:"metadata"`
+	Status   string   `json:"status"`
+	Jobs     []RunJob `json:"jobs"`
 }
 
-func NewList(items map[string]Status) RunList {
+func NewList(items []StatusListItem) RunList {
 	list := RunList{
 		Kind: "RunList",
 		Metadata: RunListMetadata{
@@ -79,21 +84,21 @@ func NewList(items map[string]Status) RunList {
 		Items: make([]RunListItem, 0, len(items)),
 	}
 
-	for runUID, status := range items {
-		list.Items = append(list.Items, NewListItem(runUID, status))
+	for _, item := range items {
+		list.Items = append(list.Items, newListItem(item))
 	}
 
 	return list
 }
 
-func NewListItem(runUID string, status Status) RunListItem {
+func newListItem(item StatusListItem) RunListItem {
 	return RunListItem{
 		Metadata: Metadata{
-			SelfLink: "/api/runs/" + runUID,
-			UID:      runUID,
+			SelfLink: "/api/runs/" + item.RunUID,
+			UID:      item.RunUID,
 		},
-		Status:     status.Run,
-		JobsStatus: status.Jobs,
+		Status: item.Status.Run,
+		Jobs:   item.Status.Jobs,
 	}
 }
 
@@ -136,14 +141,14 @@ func (h *runHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *runHandler) list(w http.ResponseWriter) {
-	statusMap, err := h.sched.StatusMap()
+	statusList, err := h.sched.StatusList()
 	if err != nil {
 		log.Println("Unable to get status map:", err.Error())
 		httputil.WriteError(w, err, http.StatusInternalServerError)
 		return
 	}
 
-	runList := NewList(statusMap)
+	runList := NewList(statusList)
 	httputil.WriteResponse(w, runList, http.StatusOK)
 }
 
@@ -165,8 +170,8 @@ func (h *runHandler) get(w http.ResponseWriter, runUID string) {
 			SelfLink: "/api/runs/" + runUID,
 			UID:      runUID,
 		},
-		Status:     status.Run,
-		JobsStatus: status.Jobs,
+		Status: status.Run,
+		Jobs:   status.Jobs,
 	}
 
 	httputil.WriteResponse(w, run, http.StatusOK)
@@ -194,7 +199,7 @@ func (h *runHandler) post(w http.ResponseWriter, r *http.Request) {
 	}
 
 	run.Status = status.Run
-	run.JobsStatus = status.Jobs
+	run.Jobs = status.Jobs
 
 	httputil.WriteResponse(w, run, http.StatusAccepted)
 }

@@ -5,7 +5,7 @@ This documentation explains the redis structure.
 Redis is used for message passing and transient storage. It contains jobs specs and status, and channels for jobs events.
 
 ## Keys
-- **runs**: Set containing all runs keys.
+- **runs**: List containing all runs keys. It needs to be a list to ensure runs are ordered in descending order of creation.
 - **run:\<uid\>**: Hash containing the run's status. The hash contains the following fields:
 ```
 uid: string: The run UID.
@@ -19,7 +19,7 @@ Status can be:
 - FAILED: The run has completed with an error.
 - CANCELED: The run was canceled.
 ```
-- **jobs:run:\<uid\>**: Set containing all jobs keys for a run.
+- **jobs:run:\<uid\>**: List containing all jobs keys for a run. It needs to be a list to ensure they are always ordered correctly.
 - **job:\<name\>:run:\<uid\>**: Hash containing the job's spec and status. A new key is created for each job. The run uid is set as a suffix to allow searchs by run. The hash contains the following fields:
 ```
 name: string: The job name.

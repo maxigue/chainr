@@ -24,12 +24,15 @@ func TestNew(t *testing.T) {
 }
 
 func TestNewList(t *testing.T) {
-	items := map[string]Status{
-		"run1": Status{
-			Run: "RUNNING",
-			Jobs: map[string]string{
-				"job1": "PENDING",
-				"job2": "RUNNING",
+	items := []StatusListItem{
+		StatusListItem{
+			RunUID: "run1",
+			Status: Status{
+				Run: "RUNNING",
+				Jobs: []RunJob{
+					RunJob{"job1", "PENDING"},
+					RunJob{"job2", "RUNNING"},
+				},
 			},
 		},
 	}
@@ -53,8 +56,8 @@ func TestNewList(t *testing.T) {
 	if l.Items[0].Status != "RUNNING" {
 		t.Errorf("l.Items[0].Status = %v, expected RUNNING", l.Items[0].Status)
 	}
-	if l.Items[0].JobsStatus["job2"] != "RUNNING" {
-		t.Errorf("l.Items[0].JobsStatus[job2] = %v, expected RUNNING", l.Items[0].JobsStatus["job2"])
+	if l.Items[0].Jobs[1].Status != "RUNNING" {
+		t.Errorf("l.Items[0].Jobs[1].Status = %v, expected RUNNING", l.Items[0].Jobs[1].Status)
 	}
 }
 
@@ -70,25 +73,28 @@ type nonEmptyScheduler struct{}
 func (s nonEmptyScheduler) Schedule(run Run) (Status, error) {
 	return Status{
 		Run:  "PENDING",
-		Jobs: make(map[string]string),
+		Jobs: make([]RunJob, 0),
 	}, nil
 }
 func (s nonEmptyScheduler) Status(runUID string) (Status, error) {
 	return Status{
 		Run: "RUNNING",
-		Jobs: map[string]string{
-			"job1": "RUNNING",
-			"job2": "PENDING",
+		Jobs: []RunJob{
+			RunJob{"job1", "RUNNING"},
+			RunJob{"job2", "PENDING"},
 		},
 	}, nil
 }
-func (s nonEmptyScheduler) StatusMap() (map[string]Status, error) {
-	return map[string]Status{
-		"run1": Status{
-			Run: "RUNNING",
-			Jobs: map[string]string{
-				"job1": "RUNNING",
-				"job2": "PENDING",
+func (s nonEmptyScheduler) StatusList() ([]StatusListItem, error) {
+	return []StatusListItem{
+		StatusListItem{
+			RunUID: "run1",
+			Status: Status{
+				Run: "RUNNING",
+				Jobs: []RunJob{
+					RunJob{"job1", "RUNNING"},
+					RunJob{"job2", "PENDING"},
+				},
 			},
 		},
 	}, nil
@@ -102,8 +108,8 @@ func (s emptyScheduler) Schedule(run Run) (Status, error) {
 func (s emptyScheduler) Status(runUID string) (Status, error) {
 	return Status{Run: "PENDING"}, nil
 }
-func (s emptyScheduler) StatusMap() (map[string]Status, error) {
-	return make(map[string]Status), nil
+func (s emptyScheduler) StatusList() ([]StatusListItem, error) {
+	return make([]StatusListItem, 0), nil
 }
 
 type failingScheduler struct{}
@@ -114,8 +120,8 @@ func (s failingScheduler) Schedule(run Run) (Status, error) {
 func (s failingScheduler) Status(runUID string) (Status, error) {
 	return Status{}, errors.New("fail")
 }
-func (s failingScheduler) StatusMap() (map[string]Status, error) {
-	return make(map[string]Status), errors.New("fail")
+func (s failingScheduler) StatusList() ([]StatusListItem, error) {
+	return make([]StatusListItem, 0), errors.New("fail")
 }
 
 type notFoundScheduler struct {
@@ -158,8 +164,10 @@ func TestRunHandlerList(t *testing.T) {
 				})
 
 				Convey("Response items should have a status for each job", func() {
-					So(runList.Items[0].JobsStatus["job1"], ShouldEqual, "RUNNING")
-					So(runList.Items[0].JobsStatus["job2"], ShouldEqual, "PENDING")
+					So(runList.Items[0].Jobs[0].Name, ShouldEqual, "job1")
+					So(runList.Items[0].Jobs[0].Status, ShouldEqual, "RUNNING")
+					So(runList.Items[0].Jobs[1].Name, ShouldEqual, "job2")
+					So(runList.Items[0].Jobs[1].Status, ShouldEqual, "PENDING")
 				})
 			})
 
@@ -218,8 +226,10 @@ func TestRunHandlerGet(t *testing.T) {
 				})
 
 				Convey("The response should have a status for each job", func() {
-					So(run.JobsStatus["job1"], ShouldEqual, "RUNNING")
-					So(run.JobsStatus["job2"], ShouldEqual, "PENDING")
+					So(run.Jobs[0].Name, ShouldEqual, "job1")
+					So(run.Jobs[0].Status, ShouldEqual, "RUNNING")
+					So(run.Jobs[1].Name, ShouldEqual, "job2")
+					So(run.Jobs[1].Status, ShouldEqual, "PENDING")
 				})
 			})
 

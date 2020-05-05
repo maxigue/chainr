@@ -57,7 +57,7 @@ func (rs RedisRunStore) SetRunStatus(runKey, status string) error {
 
 func (rs RedisRunStore) GetJobs(runKey string) ([]string, error) {
 	runJobsKey := "jobs:" + runKey
-	return rs.client.SMembers(runJobsKey).Result()
+	return rs.client.LRange(runJobsKey, 0, -1).Result()
 }
 
 func (rs RedisRunStore) GetJob(jobKey string) (Job, error) {

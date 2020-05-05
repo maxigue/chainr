@@ -143,7 +143,11 @@ func TestSetRunStatusError(t *testing.T) {
 
 type getJobsClientMock redisClientMock
 
-func (c getJobsClientMock) SMembers(key string) *redis.StringSliceCmd {
+func (c getJobsClientMock) LRange(key string, start, stop int64) *redis.StringSliceCmd {
+	if start != 0 || stop != -1 {
+		c.t.Errorf("start=%v, stop=%v, expected start=0, stop=-1", start, stop)
+	}
+
 	if key != "jobs:run:abc" {
 		c.t.Errorf("key = %v, expected jobs:run:abc", key)
 	}
@@ -167,7 +171,7 @@ func TestGetJobs(t *testing.T) {
 
 type getJobsClientErrorMock redisClientMock
 
-func (c getJobsClientErrorMock) SMembers(key string) *redis.StringSliceCmd {
+func (c getJobsClientErrorMock) LRange(key string, start, stop int64) *redis.StringSliceCmd {
 	return redis.NewStringSliceResult([]string{}, errors.New("SMembers failed"))
 }
 

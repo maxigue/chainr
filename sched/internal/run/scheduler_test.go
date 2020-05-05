@@ -93,7 +93,8 @@ type redisClientMock struct {
 	t            *testing.T
 	expectHSetK  []string
 	expectSAddK  []string
-	expectLPushV []string
+	expectLPushK []string
+	expectRPushK []string
 	*redis.Client
 }
 
@@ -108,11 +109,15 @@ func newRedisClientMock(t *testing.T) redis.Cmdable {
 			"dependency:1:job:job2:run:abc",
 		},
 		expectSAddK: []string{
-			"runs",
-			"jobs:run:abc",
 			"dependencies:job:job2:run:abc",
 		},
-		expectLPushV: []string{"run:abc"},
+		expectLPushK: []string{
+			"runs",
+			"runs:work",
+		},
+		expectRPushK: []string{
+			"jobs:run:abc",
+		},
 	}
 }
 func (c *redisClientMock) HSet(key string, values ...interface{}) *redis.IntCmd {
@@ -147,11 +152,6 @@ func (c *redisClientMock) SAdd(key string, members ...interface{}) *redis.IntCmd
 	if i, ok := indexOf(c.expectSAddK, key); ok {
 		expectedValues := []string{}
 		switch c.expectSAddK[i] {
-		case "runs":
-			expectedValues = []string{"run:abc"}
-		case "jobs:run:abc":
-			expectedValues = []string{"job:job1:run:abc", "job:job2:run:abc"}
-		case "dependencies:job:job1:run:abc":
 		case "dependencies:job:job2:run:abc":
 			expectedValues = []string{"dependency:0:job:job2:run:abc", "dependency:1:job:job2:run:abc"}
 		}
@@ -169,20 +169,52 @@ func (c *redisClientMock) SAdd(key string, members ...interface{}) *redis.IntCmd
 	return redis.NewIntCmd()
 }
 func (c *redisClientMock) LPush(key string, values ...interface{}) *redis.IntCmd {
-	if key != "runs:work" {
-		c.t.Errorf("LPush: unexpected key %v", key)
-	}
-	for _, val := range values {
-		v := val.(string)
-		if i, ok := indexOf(c.expectLPushV, v); ok {
-			c.expectLPushV = remove(c.expectLPushV, i)
-		} else {
-			c.t.Errorf("LPush: unexpected value %v", v)
+	if i, ok := indexOf(c.expectLPushK, key); ok {
+		expectedValues := []string{}
+		switch c.expectLPushK[i] {
+		case "runs":
+			expectedValues = []string{"run:abc"}
+		case "runs:work":
+			expectedValues = []string{"run:abc"}
 		}
+		vals := make([]string, len(values))
+		for i, v := range values {
+			vals[i] = v.(string)
+		}
+		if !equalsUnordered(vals, expectedValues) {
+			c.t.Errorf("LPush: values = %v, expected %v", vals, expectedValues)
+		}
+		c.expectLPushK = remove(c.expectLPushK, i)
+	} else {
+		c.t.Errorf("LPush: unexpected key %v", key)
 	}
 	return redis.NewIntCmd()
 }
-func (c *redisClientMock) SMembers(key string) *redis.StringSliceCmd {
+func (c *redisClientMock) RPush(key string, values ...interface{}) *redis.IntCmd {
+	if i, ok := indexOf(c.expectRPushK, key); ok {
+		expectedValues := []string{}
+		switch c.expectRPushK[i] {
+		case "jobs:run:abc":
+			expectedValues = []string{"job:job1:run:abc", "job:job2:run:abc"}
+		}
+		vals := make([]string, len(values))
+		for i, v := range values {
+			vals[i] = v.(string)
+		}
+		if !equalsUnordered(vals, expectedValues) {
+			c.t.Errorf("RPush: values = %v, expected %v", vals, expectedValues)
+		}
+		c.expectRPushK = remove(c.expectRPushK, i)
+	} else {
+		c.t.Errorf("RPush: unexpected key %v", key)
+	}
+	return redis.NewIntCmd()
+}
+func (c *redisClientMock) LRange(key string, start, stop int64) *redis.StringSliceCmd {
+	if start != 0 || stop != -1 {
+		c.t.Errorf("LRange: start=%v, stop=%v, expected start=0, stop=-1", start, stop)
+	}
+
 	vals := make([]string, 0)
 	switch key {
 	case "runs":
@@ -190,7 +222,7 @@ func (c *redisClientMock) SMembers(key string) *redis.StringSliceCmd {
 	case "jobs:run:abc":
 		vals = append(vals, "job:job1:run:abc", "job:job2:run:abc")
 	default:
-		c.t.Errorf("SMembers: unexpected key %v", key)
+		c.t.Errorf("LRange: unexpected key %v", key)
 	}
 	return redis.NewStringSliceResult(vals, nil)
 }
@@ -230,13 +262,11 @@ func (c *redisClientMock) HGetAll(key string) *redis.StringStringMapCmd {
 func TestSchedule(t *testing.T) {
 	s := RedisScheduler{newRedisClientMock(t)}
 
+	// job2 is before job1 in the map to ensure the ordering is done correctly.
+	// After ordering, job1 should always be before job2 in the list.
 	spec := []byte(`{
 		"kind": "Pipeline",
 		"jobs": {
-			"job1": {
-				"image": "busybox",
-				"run": "exit 0"
-			},
 			"job2": {
 				"image": "busybox",
 				"run": "exit 1",
@@ -248,6 +278,10 @@ func TestSchedule(t *testing.T) {
 				}, {
 					"job": "job42"
 				}]
+			},
+			"job1": {
+				"image": "busybox",
+				"run": "exit 0"
 			}
 		}
 	}`)
@@ -267,11 +301,17 @@ func TestSchedule(t *testing.T) {
 	if status.Run != "PENDING" {
 		t.Errorf("status.Run = %v, expected PENDING", status.Run)
 	}
-	if status.Jobs["job1"] != "PENDING" {
-		t.Errorf("status.Jobs[job1] = %v, expected PENDING", status.Jobs["job1"])
+	if status.Jobs[0].Name != "job1" {
+		t.Errorf("status.Jobs[0].Name = %v, expected job1", status.Jobs[0].Name)
 	}
-	if status.Jobs["job2"] != "PENDING" {
-		t.Errorf("status.Jobs[job2] = %v, expected PENDING", status.Jobs["job1"])
+	if status.Jobs[0].Status != "PENDING" {
+		t.Errorf("status.Jobs[0].Status = %v, expected PENDING", status.Jobs[0].Status)
+	}
+	if status.Jobs[1].Name != "job2" {
+		t.Errorf("status.Jobs[1].Name = %v, expected job2", status.Jobs[1].Name)
+	}
+	if status.Jobs[1].Status != "PENDING" {
+		t.Errorf("status.Jobs[1].Status = %v, expected PENDING", status.Jobs[1].Status)
 	}
 
 	client := s.client.(*redisClientMock)
@@ -281,9 +321,83 @@ func TestSchedule(t *testing.T) {
 	if len(client.expectSAddK) > 0 {
 		t.Errorf("missing calls to SAdd: %v", client.expectSAddK)
 	}
-	if len(client.expectLPushV) > 0 {
-		t.Errorf("missing calls to LPush: %v", client.expectLPushV)
+	if len(client.expectLPushK) > 0 {
+		t.Errorf("missing calls to LPush: %v", client.expectLPushK)
 	}
+	if len(client.expectRPushK) > 0 {
+		t.Errorf("missing calls to RPush: %v", client.expectRPushK)
+	}
+}
+
+// This function, though private, is complex enough to need its own unit test.
+func TestSortJobs(t *testing.T) {
+	jobs := map[string]Job{
+		"job1": Job{
+			DependsOn: []JobDependency{
+				JobDependency{Job: "job2"},
+				JobDependency{Job: "job3"},
+			},
+		},
+		"job2": Job{
+			DependsOn: []JobDependency{},
+		},
+		"job3": Job{
+			DependsOn: []JobDependency{
+				JobDependency{Job: "job2"},
+			},
+		},
+	}
+
+	expectedOrder := []string{"job2", "job3", "job1"}
+	sorted := sortJobs(jobs)
+	for i := range sorted {
+		if sorted[i].Name != expectedOrder[i] {
+			t.Errorf("sorted[%v].Name = %v, expected %v", i, sorted[i].Name, expectedOrder[i])
+		}
+	}
+}
+
+func TestSortJobsNotFound(t *testing.T) {
+	jobs := map[string]Job{
+		"job1": Job{
+			DependsOn: []JobDependency{
+				JobDependency{Job: "job2"},
+				JobDependency{Job: "notfound"},
+			},
+		},
+		"job2": Job{
+			DependsOn: []JobDependency{
+				JobDependency{Job: "notfound"},
+			},
+		},
+	}
+
+	expectedOrder := []string{"job2", "job1"}
+	sorted := sortJobs(jobs)
+	for i := range sorted {
+		if sorted[i].Name != expectedOrder[i] {
+			t.Errorf("sorted[%v].Name = %v, expected %v", i, sorted[i].Name, expectedOrder[i])
+		}
+	}
+}
+
+func TestSortJobsLoop(t *testing.T) {
+	jobs := map[string]Job{
+		"job1": Job{
+			DependsOn: []JobDependency{
+				JobDependency{Job: "job2"},
+			},
+		},
+		"job2": Job{
+			DependsOn: []JobDependency{
+				JobDependency{Job: "job1"},
+			},
+		},
+	}
+
+	// The order does not really matter here, the test
+	// ensures that there is no infinite loop.
+	_ = sortJobs(jobs)
 }
 
 func TestStatus(t *testing.T) {
@@ -296,11 +410,17 @@ func TestStatus(t *testing.T) {
 	if status.Run != "RUNNING" {
 		t.Errorf("status.Run = %v, expected RUNNING", status.Run)
 	}
-	if status.Jobs["job1"] != "RUNNING" {
-		t.Errorf("status.Jobs[job1] = %v, expected RUNNING", status.Jobs["job1"])
+	if status.Jobs[0].Name != "job1" {
+		t.Errorf("status.Jobs[0].Name = %v, expected job1", status.Jobs[0].Name)
 	}
-	if status.Jobs["job2"] != "PENDING" {
-		t.Errorf("status.Jobs[job2] = %v, expected PENDING", status.Jobs["job2"])
+	if status.Jobs[0].Status != "RUNNING" {
+		t.Errorf("status.Jobs[0].Status = %v, expected RUNNING", status.Jobs[0].Status)
+	}
+	if status.Jobs[1].Name != "job2" {
+		t.Errorf("status.Jobs[1].Name = %v, expected job2", status.Jobs[1].Name)
+	}
+	if status.Jobs[1].Status != "PENDING" {
+		t.Errorf("status.Jobs[1].Status = %v, expected PENDING", status.Jobs[1].Status)
 	}
 }
 
@@ -313,20 +433,29 @@ func TestStatusNotFound(t *testing.T) {
 	}
 }
 
-func TestStatusMap(t *testing.T) {
+func TestStatusList(t *testing.T) {
 	s := RedisScheduler{newRedisClientMock(t)}
-	statusMap, err := s.StatusMap()
+	statusList, err := s.StatusList()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if statusMap["abc"].Run != "RUNNING" {
-		t.Errorf("statusMap[abc].Run = %v, expected RUNNING", statusMap["abc"].Run)
+	if statusList[0].RunUID != "abc" {
+		t.Errorf("statusList[0].RunUID = %v, expected run1", statusList[0].RunUID)
 	}
-	if statusMap["abc"].Jobs["job1"] != "RUNNING" {
-		t.Errorf("statusMap[abc].Jobs[job1] = %v, expected RUNNING", statusMap["abc"].Jobs["job1"])
+	if statusList[0].Status.Run != "RUNNING" {
+		t.Errorf("statusList[0].Status.Run = %v, expected RUNNING", statusList[0].Status.Run)
 	}
-	if statusMap["abc"].Jobs["job2"] != "PENDING" {
-		t.Errorf("statusMap[abc].Jobs[job2] = %v, expected PENDING", statusMap["abc"].Jobs["job2"])
+	if statusList[0].Status.Jobs[0].Name != "job1" {
+		t.Errorf("statusList[0].Status.Jobs[0].Name = %v, expected job1", statusList[0].Status.Jobs[0].Name)
+	}
+	if statusList[0].Status.Jobs[0].Status != "RUNNING" {
+		t.Errorf("statusList[0].Status.Jobs[0].Status = %v, expected RUNNING", statusList[0].Status.Jobs[0].Status)
+	}
+	if statusList[0].Status.Jobs[1].Name != "job2" {
+		t.Errorf("statusList[0].Status.Jobs[1].Name = %v, expected job2", statusList[0].Status.Jobs[1].Name)
+	}
+	if statusList[0].Status.Jobs[1].Status != "PENDING" {
+		t.Errorf("statusList[0].Status.Jobs[1].Status = %v, expected PENDING", statusList[0].Status.Jobs[1].Status)
 	}
 }
