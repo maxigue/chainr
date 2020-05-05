@@ -35,10 +35,22 @@ func (rs brokenRunStoreStub) GetJobDependencies(jobID string) ([]JobDependency, 
 	return []JobDependency{}, nil
 }
 
+type cloudProviderStub struct{}
+
+func (cp cloudProviderStub) RunJob(job Job) error {
+	return nil
+}
+
+type eventStoreStub struct{}
+
+func (es eventStoreStub) CreateEvent(event Event) error {
+	return nil
+}
+
 func TestStartError(t *testing.T) {
 	Convey("Scenario: the runs can not be retrieved", t, func() {
 		Convey("Given the worker can not access the runs queue", func() {
-			w := Worker{&brokenRunStoreStub{}, &cloudProviderStub{}}
+			w := Worker{&brokenRunStoreStub{}, &cloudProviderStub{}, &eventStoreStub{}}
 
 			Convey("When the worker tries to process the next run", func() {
 				err := w.Start()
@@ -114,18 +126,12 @@ func (rs *runStoreDepMock) GetJobDependencies(jobID string) ([]JobDependency, er
 	return deps, nil
 }
 
-type cloudProviderStub struct{}
-
-func (cp cloudProviderStub) RunJob(job Job) error {
-	return nil
-}
-
 func TestProcessNextRun(t *testing.T) {
 	Convey("Scenario: process a valid run", t, func() {
 		Convey("Given a run is processed", func() {
 			Convey("When its dependency tree is valid, and everything goes well", func() {
 				Convey("The worker should run each job according to the dependency tree, and set statuses to SUCCESSFUL", func() {
-					w := Worker{&runStoreDepMock{t: t}, &cloudProviderStub{}}
+					w := Worker{&runStoreDepMock{t: t}, &cloudProviderStub{}, &eventStoreStub{}}
 					var wg sync.WaitGroup
 					w.ProcessNextRun(&wg)
 					wg.Wait()
@@ -216,7 +222,7 @@ func TestProcessNextRunFailure(t *testing.T) {
 			Convey("When a job fails in the dependency tree", func() {
 				Convey("Subsequent jobs should be run if expecting a failure", func() {
 					Convey("And run should be set as failed", func() {
-						w := Worker{&runStoreFailureMock{t: t}, &cloudProviderFailureStub{}}
+						w := Worker{&runStoreFailureMock{t: t}, &cloudProviderFailureStub{}, &eventStoreStub{}}
 						var wg sync.WaitGroup
 						w.ProcessNextRun(&wg)
 						wg.Wait()
@@ -298,7 +304,7 @@ func TestProcessNextRunSkipped(t *testing.T) {
 		Convey("Given a run is processed", func() {
 			Convey("When the dependency tree contains jobs whose conditions are not met", func() {
 				Convey("The jobs, and all subsequent jobs in the branch, should be skipped", func() {
-					w := Worker{&runStoreSkippedMock{t: t}, &cloudProviderStub{}}
+					w := Worker{&runStoreSkippedMock{t: t}, &cloudProviderStub{}, &eventStoreStub{}}
 					var wg sync.WaitGroup
 					w.ProcessNextRun(&wg)
 					wg.Wait()
@@ -352,7 +358,7 @@ func TestProcessNextRunNotFound(t *testing.T) {
 		Convey("Given a run is processed", func() {
 			Convey("When the run contains references to unknown dependencies", func() {
 				Convey("The run should be set to FAILED, and its jobs should not be run", func() {
-					w := Worker{&runStoreNotFoundMock{t: t}, &cloudProviderStub{}}
+					w := Worker{&runStoreNotFoundMock{t: t}, &cloudProviderStub{}, &eventStoreStub{}}
 					var wg sync.WaitGroup
 					w.ProcessNextRun(&wg)
 					wg.Wait()
@@ -423,7 +429,7 @@ func TestProcessNextRunDepLoop(t *testing.T) {
 		Convey("Given a run is processed", func() {
 			Convey("When the run has a loop in its dependencies", func() {
 				Convey("The run should be set to FAILED, and its jobs should not be run", func() {
-					w := Worker{&runStoreDepLoopMock{t: t}, &cloudProviderStub{}}
+					w := Worker{&runStoreDepLoopMock{t: t}, &cloudProviderStub{}, &eventStoreStub{}}
 					var wg sync.WaitGroup
 					w.ProcessNextRun(&wg)
 					wg.Wait()

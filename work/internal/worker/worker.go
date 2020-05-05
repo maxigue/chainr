@@ -13,6 +13,7 @@ import (
 type Worker struct {
 	rs RunStore
 	cp CloudProvider
+	es EventStore
 }
 
 type RunStore interface {
@@ -71,10 +72,23 @@ type CloudProvider interface {
 	RunJob(job Job) error
 }
 
+type EventStore interface {
+	// Creates a new event in the store,
+	// ready to be consumed.
+	CreateEvent(event Event) error
+}
+
+type Event struct {
+	Type    string
+	Title   string
+	Message string
+}
+
 func New() Worker {
 	return Worker{
 		NewRedisRunStore(),
 		NewK8SCloudProvider(),
+		NewRedisEventStore(),
 	}
 }
 
@@ -187,22 +201,13 @@ func (w Worker) processRun(rwg *sync.WaitGroup, runID string) {
 		return
 	}
 
-	log.Println("Starting run", runID)
-	if err := w.rs.SetRunStatus(runID, "RUNNING"); err != nil {
-		log.Println("Unable to set run", runID, "status to RUNNING:", err.Error())
+	if err := w.startRun(runID); err != nil {
+		log.Printf("Unable to start run %v: %v", runID, err.Error())
 		status = "FAILED"
 		return
 	}
 
-	dm := newDependencyMap(jobIDs)
-	var jwg sync.WaitGroup
-	for _, jobID := range jobIDs {
-		jwg.Add(1)
-		go w.processJob(&jwg, dm, jobID)
-	}
-	jwg.Wait()
-
-	status = dm.Status()
+	status = w.processJobs(jobIDs)
 }
 
 // SetRunStatus update the run status in the run store,
@@ -219,6 +224,17 @@ func (w Worker) setRunStatus(runID, status string) {
 	log.Println("Run", runID, "completed with status", status)
 	if err := w.rs.SetRunStatus(runID, status); err != nil {
 		log.Printf("Unable to set run %v status to %v: %v", runID, status, err.Error())
+	}
+
+	var event Event
+	switch status {
+	case "SUCCESSFUL":
+		event = Event{"SUCCESS", "A run completed successfully", "Run with id " + runID + " completed successfully."}
+	case "FAILED":
+		event = Event{"FAILURE", "A run failed", "Run with id " + runID + " failed."}
+	}
+	if err := w.es.CreateEvent(event); err != nil {
+		log.Println("Unable to create event for run completion:", err.Error())
 	}
 
 	if r != nil {
@@ -271,17 +287,36 @@ func contains(arr []string, val string) bool {
 	return false
 }
 
+func (w Worker) startRun(runID string) error {
+	log.Println("Starting run", runID)
+
+	if err := w.rs.SetRunStatus(runID, "RUNNING"); err != nil {
+		return err
+	}
+	if err := w.es.CreateEvent(Event{"START", "A run started", "A new run with id " + runID + " is processing."}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (w Worker) processJobs(jobIDs []string) string {
+	dm := newDependencyMap(jobIDs)
+	var jwg sync.WaitGroup
+	for _, jobID := range jobIDs {
+		jwg.Add(1)
+		go w.processJob(&jwg, dm, jobID)
+	}
+	jwg.Wait()
+
+	return dm.Status()
+}
+
 func (w Worker) processJob(wg *sync.WaitGroup, dm dependencyMap, jobID string) {
 	defer wg.Done()
 
 	status := "SUCCESSFUL"
-	defer func() {
-		log.Println("Job", jobID, "completed with status", status)
-		if err := w.rs.SetJobStatus(jobID, status); err != nil {
-			log.Printf("Unable to set job %v status to %v: %v", jobID, status, err.Error())
-		}
-		dm.Broadcast(jobID, status)
-	}()
+	defer func() { w.setJobStatus(dm, jobID, status) }()
 
 	if err := w.waitJobDependencies(jobID, dm); err != nil {
 		log.Println("Conditions for job", jobID, "are not met:", err.Error())
@@ -293,6 +328,26 @@ func (w Worker) processJob(wg *sync.WaitGroup, dm dependencyMap, jobID string) {
 		log.Println("Job", jobID, "failed:", err.Error())
 		status = "FAILED"
 	}
+}
+
+func (w Worker) setJobStatus(dm dependencyMap, jobID string, status string) {
+	log.Println("Job", jobID, "completed with status", status)
+	if err := w.rs.SetJobStatus(jobID, status); err != nil {
+		log.Printf("Unable to set job %v status to %v: %v", jobID, status, err.Error())
+	}
+
+	var event Event
+	switch status {
+	case "SUCCESSFUL":
+		event = Event{"SUCCESS", "A job completed successfully", "Job with id " + jobID + " completed successfully."}
+	case "FAILED":
+		event = Event{"FAILURE", "A job failed", "Job with id " + jobID + " failed."}
+	}
+	if err := w.es.CreateEvent(event); err != nil {
+		log.Println("Unable to create event for job completion:", err.Error())
+	}
+
+	dm.Broadcast(jobID, status)
 }
 
 func (w Worker) waitJobDependencies(jobID string, dm dependencyMap) error {
@@ -329,6 +384,9 @@ func (w Worker) runJob(jobID string) error {
 	run: %v`, jobID, job.Name, job.Image, job.Run)
 
 	if err := w.rs.SetJobStatus(jobID, "RUNNING"); err != nil {
+		return err
+	}
+	if err := w.es.CreateEvent(Event{"START", "A job started", "Job with id " + jobID + " is processing."}); err != nil {
 		return err
 	}
 

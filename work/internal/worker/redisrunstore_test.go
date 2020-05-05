@@ -4,61 +4,14 @@ import (
 	"testing"
 
 	"errors"
-	"os"
 	"time"
 
 	"github.com/go-redis/redis/v7"
 )
 
 func TestNewRedisRunStore(t *testing.T) {
-	rs := NewRedisRunStore()
-	client := rs.client.(*redis.Client)
-	expected := "Redis<chainr-redis:6379 db:0>"
-	if client.String() != expected {
-		t.Errorf("client = %v, expected %v", client, expected)
-	}
-}
-
-func TestNewRedisRunStoreWithEnv(t *testing.T) {
-	if err := os.Setenv("REDIS_ADDR", "test:1234"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_ADDR")
-	if err := os.Setenv("REDIS_PASSWORD", "passw0rd"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_PASSWORD")
-	if err := os.Setenv("REDIS_DB", "1"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_DB")
-	rs := NewRedisRunStore()
-	client := rs.client.(*redis.Client)
-
-	expected := "Redis<test:1234 db:1>"
-	if client.String() != expected {
-		t.Errorf("client = %v, expected %v", client, expected)
-	}
-}
-
-// In case of error reading the redis database, the default database is used.
-func TestNewRedisRunStoreWithEnvError(t *testing.T) {
-	if err := os.Setenv("REDIS_DB", "test"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_DB")
-	rs := NewRedisRunStore()
-	client := rs.client.(*redis.Client)
-
-	expected := "Redis<chainr-redis:6379 db:0>"
-	if client.String() != expected {
-		t.Errorf("client = %v, expected %v", client, expected)
-	}
-}
-
-type redisClientMock struct {
-	t *testing.T
-	*redis.Client
+	// Test that NewRedisRunStore does not panic.
+	_ = NewRedisRunStore()
 }
 
 type nextRunClientMock redisClientMock

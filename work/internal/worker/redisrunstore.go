@@ -1,43 +1,13 @@
 package worker
 
-import (
-	"log"
-	"os"
-	"strconv"
-
-	"github.com/go-redis/redis/v7"
-)
+import "github.com/go-redis/redis/v7"
 
 type RedisRunStore struct {
 	client redis.Cmdable
 }
 
 func NewRedisRunStore() RedisRunStore {
-	addr := "chainr-redis:6379"
-	password := ""
-	db := 0
-	if val, ok := os.LookupEnv("REDIS_ADDR"); ok {
-		addr = val
-	}
-	if val, ok := os.LookupEnv("REDIS_PASSWORD"); ok {
-		password = val
-	}
-	if val, ok := os.LookupEnv("REDIS_DB"); ok {
-		d, err := strconv.Atoi(val)
-		if err != nil {
-			log.Println("Invalid REDIS_DB value " + val + ", using default 0")
-			d = 0
-		}
-		db = d
-	}
-
-	client := redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-		DB:       db,
-	})
-
-	return RedisRunStore{client}
+	return RedisRunStore{NewRedisClient()}
 }
 
 func (rs RedisRunStore) NextRun() (string, error) {
