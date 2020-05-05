@@ -42,8 +42,19 @@ job: string: Key of the dependency job.
 failure: true|false: If set to true, the job will only be run if the dependency fails. If set to false, the job will only be run if the dependency succeeds.
 ```
 - **runs:work**: List containing the pending runs, formatted as `run:<uid>`. This list is consumed by workers.
-- **events:runs:notif**: List containing events on runs, formatted as `event:<event>:run:<uid>`. This list is consumed by notifiers.
-- **events:jobs:notif**: List containing events on jobs, formatted as `event:<event>:job<name>:run:<uid>`. This list is consumed by notifiers.
+- **events:notif**: List containing the pending events, formatted as `event:<uid>`. This list is consumed by notifiers.
+- **event:\<uid\>**: Hash containing an event. The hash contains the following fields:
+```
+type: type: The event type.
+title: string: A short string describing the event.
+message: string: The detailed event message.
+```
+Type can be:
+```
+- START: The event references a start.
+- SUCCESS: The event references a success.
+- FAILURE: The event references an error.
+```
 
 ## PubSub
 - **status:job:\<name\>:run:\<uid\>**: Channel passing the completion status of a job, formatted as `<status>`. This channel is consumed by workers, in the dependency resolution.
