@@ -22,7 +22,7 @@ ingress:
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hosts:
-    - host: chainr.minikube
+    - host: chainr.io
       paths:
         - /
 

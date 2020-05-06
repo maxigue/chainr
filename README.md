@@ -18,7 +18,7 @@ The following use cases can be considered:
 
 ## Installing
 Clone the repository, make sure to have kubectl installed and pointing to your target namespace, and run `make deploy`.
-The default ingress host is `chainr.minikube`. It can be overridden in sched's [values.yaml](sched/deployments/helm/sched/values.yaml).
+The default ingress host is `chainr.io`. It can be overridden in sched's [values.yaml](sched/deployments/helm/sched/values.yaml).
 Alternatively, the service type can be set to `NodePort`.
 
 ## Example
