@@ -1,12 +1,10 @@
-{{- if .Values.ingress.enabled -}}
-{{- $fullName := include "chainr-sched.fullname" . -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: {{ $fullName }}
+  name: {{ include "chainr-gate.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ include "chainr-sched.name" . }}
-    helm.sh/chart: {{ include "chainr-sched.chart" . }}
+    app.kubernetes.io/name: {{ include "chainr-gate.name" . }}
+    helm.sh/chart: {{ include "chainr-gate.chart" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
   {{- with .Values.ingress.annotations }}
@@ -29,11 +27,7 @@ spec:
     - host: {{ .host | quote }}
       http:
         paths:
-        {{- range .paths }}
-          - path: {{ . }}
-            backend:
-              serviceName: {{ $fullName }}
-              servicePort: http
+        {{- with .paths }}
+          {{- toYaml . | nindent 10 }}
         {{- end }}
   {{- end }}
-{{- end }}

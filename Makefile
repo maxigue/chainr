@@ -1,18 +1,28 @@
-SERVICES=sched work notif
-TARGETS=all build test fmt check-fmt docker-build deploy clean
+ALL_SERVICES=gate $(GO_SERVICES)
+GO_SERVICES=sched work notif
 
-.PHONY: $(TARGETS) $(SERVICES) run
+GO_TARGETS=all build test fmt check-fmt docker-build
 
-$(TARGETS):
-	if [ $@ == "deploy" ]; then \
-		./scripts/deploy.sh; \
-	fi; \
-	for s in $(SERVICES); do \
+.PHONY: $(GO_TARGETS) $(GO_SERVICES) run deploy clean
+
+$(GO_TARGETS):
+	for s in $(GO_SERVICES); do \
 	  $(MAKE) $@ -C $$s || exit 1; \
 	done
 
-$(SERVICES):
+$(GO_SERVICES):
 	$(MAKE) -C $@
 
 run:
 	@echo "To run a service, use \"make run -C <service>\""
+
+deploy:
+	./scripts/deploy.sh; \
+	for s in $(ALL_SERVICES); do \
+	  $(MAKE) $@ -C $$s || exit 1; \
+	done
+
+clean:
+	for s in $(ALL_SERVICES); do \
+	  $(MAKE) $@ -C $$s || exit 1; \
+	done

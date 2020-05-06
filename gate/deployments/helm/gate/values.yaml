@@ -1,11 +1,11 @@
-# Default values for sched.
+# Default values for gate.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
 replicaCount: 1
 
 image:
-  repository: tyrame/chainr-sched
+  repository: tyrame/chainr-gate
   tag: latest
   pullPolicy: Always
 
@@ -15,6 +15,28 @@ fullnameOverride: ""
 service:
   type: ClusterIP
   port: 80
+
+ingress:
+  enabled: true
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chainr.io
+      paths:
+        - path: /api
+          backend:
+            serviceName: chainr-sched
+            servicePort: http
+        - path: /
+          backend:
+            serviceName: chainr-ui
+            servicePort: http
+
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
