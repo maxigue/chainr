@@ -55,6 +55,3 @@ Type can be:
 - SUCCESS: The event references a success.
 - FAILURE: The event references an error.
 ```
-
-## PubSub
-- **status:job:\<name\>:run:\<uid\>**: Channel passing the completion status of a job, formatted as `<status>`. This channel is consumed by workers, in the dependency resolution.
