@@ -49,6 +49,12 @@ docker-build:
 	make docker-build -C notif
 	npm run docker-build -C ui
 
+docker-push:
+	make docker-push -C sched
+	make docker-push -C work
+	make docker-push -C notif
+	npm run docker-push -C ui
+
 deploy:
 	./scripts/deploy.sh
 	make deploy -C gate

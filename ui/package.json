@@ -9,6 +9,7 @@
     "lint": "vue-cli-service lint",
     "lint-no-fix": "vue-cli-service lint --no-fix --max-warnings 0",
     "docker-build": "docker build -t tyrame/chainr-ui:latest .",
+    "docker-push": "docker push tyrame/chainr-ui:latest",
     "deploy": "./scripts/deploy.sh",
     "clean": "./scripts/clean.sh"
   },

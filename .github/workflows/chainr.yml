@@ -23,3 +23,12 @@ jobs:
 
     - name: Run unit tests
       run: make test
+
+    - name: Build docker images
+      run: make docker-build
+
+    - name: Login to Dockerhub
+      run: echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_LOGIN }} --password-stdin
+
+    - name: Push docker images
+      run: make docker-push

@@ -27,6 +27,9 @@ check-fmt:
 docker-build:
 	docker build -t $(DOCKER_TAG) -f $(DOCKERFILE) .
 
+docker-push:
+	docker push $(DOCKER_TAG)
+
 deploy:
 	./scripts/deploy.sh
 
