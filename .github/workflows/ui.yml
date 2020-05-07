@@ -1,0 +1,36 @@
+name: ui
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      run: npm install
+      working-directory: ui
+    - name: Check formatting
+      run: npm run lint:no-fix
+      working-directory: ui
+    - name: Run unit tests
+      run: npm run test:unit
+      working-directory: ui
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build docker image
+      run: npm run docker:build
+      working-directory: ui
+    - name: Login to Dockerhub
+      run: echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_LOGIN }} --password-stdin
+    - name: Push docker image
+      run: npm run docker:push
+      working-directory: ui

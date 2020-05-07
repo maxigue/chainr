@@ -7,17 +7,14 @@ all: build
 
 build: sched work notif ui
 
-deps:
-	npm install -C ui
-
 sched:
-	make build -C sched
+	make -C sched
 
 work:
-	make build -C work
+	make -C work
 
 notif:
-	make build -C notif
+	make -C notif
 
 ui:
 	npm run build -C ui
@@ -41,19 +38,19 @@ check-fmt:
 	make check-fmt -C sched
 	make check-fmt -C work
 	make check-fmt -C notif
-	npm run lint-no-fix -C ui
+	npm run lint:no-fix -C ui
 
 docker-build:
 	make docker-build -C sched
 	make docker-build -C work
 	make docker-build -C notif
-	npm run docker-build -C ui
+	npm run docker:build -C ui
 
 docker-push:
 	make docker-push -C sched
 	make docker-push -C work
 	make docker-push -C notif
-	npm run docker-push -C ui
+	npm run docker:push -C ui
 
 deploy:
 	./scripts/deploy.sh

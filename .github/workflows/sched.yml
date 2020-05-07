@@ -1,4 +1,4 @@
-name: chainr
+name: sched
 
 on:
   push:
@@ -9,26 +9,28 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2-beta
       with:
         go-version: '^1.14.1'
-    - name: Install dependencies
-      run: make deps
-
     - name: Check formatting
       run: make check-fmt
-
+      working-directory: sched
     - name: Run unit tests
       run: make test
+      working-directory: sched
 
-    - name: Build docker images
+  publish:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build docker image
       run: make docker-build
-
+      working-directory: sched
     - name: Login to Dockerhub
       run: echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_LOGIN }} --password-stdin
-
-    - name: Push docker images
+    - name: Push docker image
       run: make docker-push
+      working-directory: sched
