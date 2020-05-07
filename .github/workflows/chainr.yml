@@ -15,7 +15,10 @@ jobs:
     - uses: actions/setup-go@v2-beta
       with:
         go-version: '^1.14.1'
-    - name: Check go formatting
+    - name: Install dependencies
+      run: make deps
+
+    - name: Check formatting
       run: make check-fmt
 
     - name: Run unit tests
