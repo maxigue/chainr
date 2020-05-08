@@ -1,32 +1,54 @@
 <template>
-  <div id="app">
-    <div id="nav">
-      <router-link to="/">Home</router-link> |
-      <router-link to="/about">About</router-link>
-    </div>
+  <div id="app" :class="theme">
+    <AppHeader></AppHeader>
     <router-view />
   </div>
 </template>
 
-<style>
+<script lang="ts">
+import { Component, Vue } from "vue-property-decorator";
+import AppHeader from "@/components/AppHeader.vue";
+
+@Component({
+  components: {
+    AppHeader,
+  },
+})
+export default class App extends Vue {
+  private get theme() {
+    return this.$store.state.theme;
+  }
+}
+</script>
+
+<style scoped>
 #app {
+  height: 100%;
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
-  color: #2c3e50;
+}
+</style>
+
+<style>
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
-#nav {
-  padding: 30px;
+a {
+  text-decoration: none;
+  color: black;
 }
 
-#nav a {
-  font-weight: bold;
-  color: #2c3e50;
+.light {
 }
 
-#nav a.router-link-exact-active {
-  color: #42b983;
+.dark {
+  background: gray;
+  color: white;
 }
 </style>
