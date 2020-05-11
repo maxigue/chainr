@@ -5,7 +5,6 @@
     </div>
     <div class="nav">
       <router-link to="/runs">Runs</router-link> |
-      <router-link to="/schedule">Schedule</router-link> |
       <router-link to="/about">About</router-link>
     </div>
     <a id="toggle-theme" @click="toggleTheme">Theme: {{ theme }}</a>
