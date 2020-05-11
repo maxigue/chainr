@@ -14,8 +14,8 @@
       <router-link to="/about">About</router-link> page.
     </p>
     <p id="nb-runs" v-if="loading">Loading runs...</p>
-    <p id="nb-runs" v-if="error">An error occurred while loading runs.</p>
-    <p id="nb-runs" v-if="!loading && !error">
+    <p id="nb-runs" v-else-if="error">An error occurred while loading runs.</p>
+    <p id="nb-runs" v-else>
       There are currently {{ nbRuns }} runs in progress.
     </p>
   </div>
