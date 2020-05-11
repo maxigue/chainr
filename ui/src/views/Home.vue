@@ -15,7 +15,7 @@
     </p>
     <br />
     <br />
-    <p id="nb-runs" v-if="loading">Loading runs{{ suspensionPoints }}</p>
+    <p id="nb-runs" v-if="loading">Loading runs...</p>
     <p id="nb-runs" v-if="error">An error occurred while loading runs.</p>
     <p id="nb-runs" v-if="!loading && !error">
       There are currently {{ nbRuns }} runs in progress.
@@ -33,19 +33,11 @@ interface Run {
 
 @Component
 export default class Home extends Vue {
-  private suspensionPoints = ".";
-
   private loading = true;
   private error = false;
   private nbRuns = 0;
 
   private created() {
-    const interval = setInterval(() => {
-      this.suspensionPoints = this.updateSuspensionPoints(
-        this.suspensionPoints
-      );
-    }, 500);
-
     axios
       .get("/api/runs")
       .then((response) => {
@@ -64,16 +56,7 @@ export default class Home extends Vue {
       })
       .finally(() => {
         this.loading = false;
-        clearInterval(interval);
       });
-  }
-
-  private updateSuspensionPoints(suspensionPoints: string): string {
-    let next = suspensionPoints + ".";
-    if (next.length > 3) {
-      next = ".";
-    }
-    return next;
   }
 }
 </script>
