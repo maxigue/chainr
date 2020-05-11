@@ -13,8 +13,6 @@
       For more information about the project, see the
       <router-link to="/about">About</router-link> page.
     </p>
-    <br />
-    <br />
     <p id="nb-runs" v-if="loading">Loading runs...</p>
     <p id="nb-runs" v-if="error">An error occurred while loading runs.</p>
     <p id="nb-runs" v-if="!loading && !error">
@@ -60,3 +58,9 @@ export default class Home extends Vue {
   }
 }
 </script>
+
+<style scoped>
+#nb-runs {
+  margin-top: 50px;
+}
+</style>
