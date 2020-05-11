@@ -38,6 +38,9 @@ export default class AppHeader extends Vue {
   cursor: default;
 }
 
+#header a {
+  color: black;
+}
 a:hover {
   color: white;
 }

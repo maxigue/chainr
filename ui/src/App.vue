@@ -46,9 +46,15 @@ a {
 
 .light {
 }
+.light a {
+  color: blue;
+}
 
 .dark {
-  background: gray;
+  background: #52475a;
   color: white;
+}
+.dark a {
+  color: burlywood;
 }
 </style>
