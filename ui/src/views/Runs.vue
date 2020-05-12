@@ -31,11 +31,16 @@ export default class Runs extends Vue {
   private loading = true;
   private error = false;
   private runs = [];
+  private stop = false;
 
   private created() {
     this.updateRuns().finally(() => {
       this.loading = false;
     });
+  }
+
+  private destroyed() {
+    this.stop = true;
   }
 
   private updateRuns() {
@@ -50,7 +55,9 @@ export default class Runs extends Vue {
       })
       .finally(() => {
         setTimeout(() => {
-          this.updateRuns();
+          if (!this.stop) {
+            this.updateRuns();
+          }
         }, 2000);
       });
   }
