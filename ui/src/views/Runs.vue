@@ -33,16 +33,25 @@ export default class Runs extends Vue {
   private runs = [];
 
   private created() {
-    axios
+    this.updateRuns().finally(() => {
+      this.loading = false;
+    });
+  }
+
+  private updateRuns() {
+    return axios
       .get("/api/runs")
       .then((response) => {
         this.runs = response.data.items;
+        this.error = false;
       })
       .catch(() => {
         this.error = true;
       })
       .finally(() => {
-        this.loading = false;
+        setTimeout(() => {
+          this.updateRuns();
+        }, 2000);
       });
   }
 }
