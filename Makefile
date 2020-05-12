@@ -60,6 +60,9 @@ deploy:
 	make deploy -C notif
 	npm run deploy -C ui
 
+chaos:
+	./scripts/chaos.sh
+
 clean:
 	make clean -C gate
 	make clean -C sched
