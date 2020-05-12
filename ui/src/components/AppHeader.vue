@@ -29,11 +29,11 @@ export default class AppHeader extends Vue {
 <style scoped>
 #header {
   height: 30px;
+  padding: 5px;
   background: #ae8cc4;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 5px;
   color: black;
   cursor: default;
 }

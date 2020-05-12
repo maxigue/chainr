@@ -18,7 +18,7 @@ describe("Runs.vue", () => {
     expect(wrapper.find("#runs-info").text()).to.contain("Loading");
   });
 
-  it("Displays an error message when the fetch fails", (done) => {
+  it("displays an error message when the fetch fails", (done) => {
     moxios.stubRequest("/api/runs", { status: 500 });
 
     const wrapper = shallowMount(Runs);

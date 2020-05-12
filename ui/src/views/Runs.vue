@@ -47,3 +47,11 @@ export default class Runs extends Vue {
   }
 }
 </script>
+
+<style scoped>
+#runs {
+  margin: 0 10%;
+  overflow: auto;
+  padding-bottom: 5px;
+}
+</style>
