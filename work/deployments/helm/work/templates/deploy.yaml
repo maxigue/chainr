@@ -24,6 +24,11 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: REDIS_ADDRS
+              value: {{ .Values.redisAddrs }}
+            - name: REDIS_MASTER
+              value: {{ .Values.redisMaster }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

@@ -18,14 +18,14 @@ type redisClientStub struct {
 }
 
 func TestNewRedisClient(t *testing.T) {
-	client := NewRedisClient()
+	client := NewRedisClient().(*redis.Client)
 	expected := "Redis<chainr-redis:6379 db:0>"
 	if client.String() != expected {
 		t.Errorf("client = %v, expected %v", client, expected)
 	}
 }
 
-func TestNewRedisClientWithEnv(t *testing.T) {
+func TestNewRedisClientSingleNode(t *testing.T) {
 	if err := os.Setenv("REDIS_ADDR", "test:1234"); err != nil {
 		t.Fatal(err)
 	}
@@ -38,9 +38,26 @@ func TestNewRedisClientWithEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.Unsetenv("REDIS_DB")
-	client := NewRedisClient()
+	client := NewRedisClient().(*redis.Client)
 
 	expected := "Redis<test:1234 db:1>"
+	if client.String() != expected {
+		t.Errorf("client = %v, expected %v", client, expected)
+	}
+}
+
+func TestNewRedisClientFailover(t *testing.T) {
+	if err := os.Setenv("REDIS_ADDRS", "test:1234 test2:1234"); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Unsetenv("REDIS_ADDRS")
+	if err := os.Setenv("REDIS_MASTER", "test"); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Unsetenv("REDIS_MASTER")
+	client := NewRedisClient().(*redis.Client)
+
+	expected := "Redis<FailoverClient db:0>"
 	if client.String() != expected {
 		t.Errorf("client = %v, expected %v", client, expected)
 	}
@@ -52,7 +69,7 @@ func TestNewRedisClientWithEnvError(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.Unsetenv("REDIS_DB")
-	client := NewRedisClient()
+	client := NewRedisClient().(*redis.Client)
 
 	expected := "Redis<chainr-redis:6379 db:0>"
 	if client.String() != expected {

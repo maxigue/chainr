@@ -4,16 +4,24 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/go-redis/redis/v7"
 )
 
-func NewRedisClient() *redis.Client {
-	addr := "chainr-redis:6379"
+func NewRedisClient() redis.UniversalClient {
+	addrs := []string{"chainr-redis:6379"}
+	masterName := ""
 	password := ""
 	db := 0
 	if val, ok := os.LookupEnv("REDIS_ADDR"); ok {
-		addr = val
+		addrs = []string{val}
+	}
+	if val, ok := os.LookupEnv("REDIS_ADDRS"); ok {
+		addrs = strings.Split(val, " ")
+	}
+	if val, ok := os.LookupEnv("REDIS_MASTER"); ok {
+		masterName = val
 	}
 	if val, ok := os.LookupEnv("REDIS_PASSWORD"); ok {
 		password = val
@@ -27,9 +35,10 @@ func NewRedisClient() *redis.Client {
 		db = d
 	}
 
-	return redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-		DB:       db,
+	return redis.NewUniversalClient(&redis.UniversalOptions{
+		Addrs:      addrs,
+		MasterName: masterName,
+		Password:   password,
+		DB:         db,
 	})
 }
