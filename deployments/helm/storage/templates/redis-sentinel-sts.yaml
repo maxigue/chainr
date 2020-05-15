@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "chainr-redis.fullname" . }}-sentinel
+  labels:
+    app.kubernetes.io/name: {{ include "chainr-redis.name" . }}-sentinel
+    helm.sh/chart: {{ include "chainr-redis.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  serviceName: {{ include "chainr-redis.fullname" . }}-sentinel
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "chainr-redis.name" . }}-sentinel
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "chainr-redis.name" . }}-sentinel
+        helm.sh/chart: {{ include "chainr-redis.chart" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+    spec:
+      initContainers:
+      - name: init-redis
+        image: bash
+        command: ["bash", "-c", "
+          set -ex\n
+          [[ `hostname` =~ -([0-9]+)$ ]] || exit 1\n
+          [[ -f /mnt/conf/sentinel.conf ]] && exit 0\n
+          # Copy appropriate conf.d files from config-map to emptyDir.\n
+          cp /mnt/config-map/sentinel.conf /mnt/conf/sentinel.conf\n
+        "]
+        volumeMounts:
+        - name: conf
+          mountPath: /mnt/conf
+        - name: config-map
+          mountPath: /mnt/config-map
+      containers:
+      - name: {{ include "chainr-redis.fullname" . }}-sentinel
+        command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: redis-sentinel
+          containerPort: 26379
+        volumeMounts:
+        - name: conf
+          mountPath: /etc/redis
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - "/usr/local/bin/redis-cli -h $(hostname) -p 26379 ping"
+      volumes:
+      - name: config-map
+        configMap:
+          name: {{ include "chainr-redis.fullname" . }}-sentinel
+  volumeClaimTemplates:
+  - metadata:
+      name: conf
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Mi

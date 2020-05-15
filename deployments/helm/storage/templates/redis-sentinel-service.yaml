@@ -1,19 +1,19 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "chainr-redis.fullname" . }}
+  name: {{ include "chainr-redis.fullname" . }}-sentinel
   labels:
-    app.kubernetes.io/name: {{ include "chainr-redis.name" . }}
+    app.kubernetes.io/name: {{ include "chainr-redis.name" . }}-sentinel
     helm.sh/chart: {{ include "chainr-redis.chart" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   clusterIP: None
   ports:
-    - port: {{ .Values.service.redis.port }}
-      targetPort: redis
+    - port: {{ .Values.service.sentinel.port }}
+      targetPort: redis-sentinel
       protocol: TCP
-      name: redis
+      name: redis-sentinel
   selector:
-    app.kubernetes.io/name: {{ include "chainr-redis.name" . }}
+    app.kubernetes.io/name: {{ include "chainr-redis.name" . }}-sentinel
     app.kubernetes.io/instance: {{ .Release.Name }}

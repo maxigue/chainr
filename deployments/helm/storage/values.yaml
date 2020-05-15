@@ -2,7 +2,7 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-replicaCount: 1
+replicaCount: 3
 
 image:
   repository: redis
@@ -13,20 +13,10 @@ nameOverride: ""
 fullnameOverride: ""
 
 service:
-  type: ClusterIP
-  port: 6379
-
-ingress:
-  enabled: false
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts: []
-
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
+  redis:
+    port: 6379
+  sentinel:
+    port: 26379
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
@@ -45,3 +35,6 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# The storage request for the persistent volume claim.
+storage: 100Mi
