@@ -19,7 +19,7 @@ func TestNewRedisEventStore(t *testing.T) {
 	}
 }
 
-func TestNewRedisEventStoreWithEnv(t *testing.T) {
+func TestNewRedisEventStoreSingleNode(t *testing.T) {
 	if err := os.Setenv("REDIS_ADDR", "test:1234"); err != nil {
 		t.Fatal(err)
 	}
@@ -36,6 +36,24 @@ func TestNewRedisEventStoreWithEnv(t *testing.T) {
 	client := es.client.(*redis.Client)
 
 	expected := "Redis<test:1234 db:1>"
+	if client.String() != expected {
+		t.Errorf("client = %v, expected %v", client, expected)
+	}
+}
+
+func TestNewRedisEventStoreFailover(t *testing.T) {
+	if err := os.Setenv("REDIS_ADDRS", "test:1234 test2:1234"); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Unsetenv("REDIS_ADDRS")
+	if err := os.Setenv("REDIS_MASTER", "test"); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Unsetenv("REDIS_MASTER")
+	es := NewRedisEventStore()
+	client := es.client.(*redis.Client)
+
+	expected := "Redis<FailoverClient db:0>"
 	if client.String() != expected {
 		t.Errorf("client = %v, expected %v", client, expected)
 	}
