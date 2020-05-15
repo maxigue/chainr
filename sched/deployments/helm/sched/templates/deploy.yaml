@@ -26,6 +26,10 @@ spec:
           env:
             - name: PORT
               value: "80"
+            - name: REDIS_ADDRS
+              value: {{ .Values.redisAddrs }}
+            - name: REDIS_MASTER
+              value: {{ .Values.redisMaster }}
           ports:
             - name: http
               containerPort: 80

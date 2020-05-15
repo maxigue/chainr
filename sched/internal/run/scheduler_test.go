@@ -17,7 +17,7 @@ func TestNewScheduler(t *testing.T) {
 	}
 }
 
-func TestNewSchedulerWithEnv(t *testing.T) {
+func TestNewSchedulerSingleNode(t *testing.T) {
 	if err := os.Setenv("REDIS_ADDR", "test:1234"); err != nil {
 		t.Fatal(err)
 	}
@@ -34,6 +34,24 @@ func TestNewSchedulerWithEnv(t *testing.T) {
 	client := s.client.(*redis.Client)
 
 	expected := "Redis<test:1234 db:1>"
+	if client.String() != expected {
+		t.Errorf("client = %v, expected %v", client, expected)
+	}
+}
+
+func TestNewSchedulerFailover(t *testing.T) {
+	if err := os.Setenv("REDIS_ADDRS", "test:1234 test2:1234"); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Unsetenv("REDIS_ADDRS")
+	if err := os.Setenv("REDIS_MASTER", "test"); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Unsetenv("REDIS_MASTER")
+	s := NewScheduler().(*RedisScheduler)
+	client := s.client.(*redis.Client)
+
+	expected := "Redis<FailoverClient db:0>"
 	if client.String() != expected {
 		t.Errorf("client = %v, expected %v", client, expected)
 	}

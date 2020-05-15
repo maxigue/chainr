@@ -5,6 +5,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/go-redis/redis/v7"
 )
@@ -40,11 +41,18 @@ type RedisScheduler struct {
 }
 
 func NewScheduler() Scheduler {
-	addr := "chainr-redis:6379"
+	addrs := []string{"chainr-redis:6379"}
+	masterName := ""
 	password := ""
 	db := 0
 	if val, ok := os.LookupEnv("REDIS_ADDR"); ok {
-		addr = val
+		addrs = []string{val}
+	}
+	if val, ok := os.LookupEnv("REDIS_ADDRS"); ok {
+		addrs = strings.Split(val, " ")
+	}
+	if val, ok := os.LookupEnv("REDIS_MASTER"); ok {
+		masterName = val
 	}
 	if val, ok := os.LookupEnv("REDIS_PASSWORD"); ok {
 		password = val
@@ -58,10 +66,11 @@ func NewScheduler() Scheduler {
 		db = d
 	}
 
-	client := redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-		DB:       db,
+	client := redis.NewUniversalClient(&redis.UniversalOptions{
+		Addrs:      addrs,
+		MasterName: masterName,
+		Password:   password,
+		DB:         db,
 	})
 
 	return &RedisScheduler{client}
