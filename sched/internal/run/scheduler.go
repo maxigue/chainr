@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-redis/redis/v7"
 )
@@ -69,8 +70,12 @@ func NewScheduler() Scheduler {
 	client := redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs:      addrs,
 		MasterName: masterName,
-		Password:   password,
-		DB:         db,
+
+		Password: password,
+		DB:       db,
+
+		MaxRetries:      6,
+		MaxRetryBackoff: 10 * time.Second,
 	})
 
 	return &RedisScheduler{client}
