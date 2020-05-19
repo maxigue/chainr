@@ -40,9 +40,9 @@ affinity: {}
 # sentinel hosts, or the headless service to sentinel.
 # If using sentinel, you must also set the redisMasterName.
 # In the case of a redis cluster, put the address of each node, or the headless service.
-redisAddrs: chainr-redis-sentinel:26379
+redisAddrs: chainr-redis:6379
 
 # This is the name of the redis master, configured in sentinel.
 # When this parameter is set, it will be assumed that redis
 # runs with sentinel.
-redisMaster: chainr-redis
+redisMaster: ""

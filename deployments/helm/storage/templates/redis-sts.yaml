@@ -73,6 +73,8 @@ spec:
       - name: config-map
         configMap:
           name: {{ include "chainr-redis.fullname" . }}
+      - name: conf
+        emptyDir: {}
   volumeClaimTemplates:
   - metadata:
       name: data
@@ -81,10 +83,3 @@ spec:
       resources:
         requests:
           storage: {{ .Values.storage }}
-  - metadata:
-      name: conf
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: 10Mi
