@@ -42,6 +42,7 @@ job: string: Key of the dependency job.
 failure: true|false: If set to true, the job will only be run if the dependency fails. If set to false, the job will only be run if the dependency succeeds.
 ```
 - **runs:work**: List containing the pending runs, formatted as `run:<uid>`. This list is consumed by workers.
+- **runs:worker:\<name\>**: List containing the processing runs, formatted as `run:<uid>`. This list allows the recycler to re-schedule unfinished runs when workers are killed.
 - **events:notif**: List containing the pending events, formatted as `event:<uid>`. This list is consumed by notifiers.
 - **event:\<uid\>**: Hash containing an event. The hash contains the following fields:
 ```

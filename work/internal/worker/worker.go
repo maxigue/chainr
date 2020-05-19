@@ -21,6 +21,7 @@ type RunStore interface {
 	// Actively listens to new runs, and when a new run is available,
 	// returns an arbitrary string identifier referencing it.
 	// This identifier is used to refer to the run in store operations.
+	// Runs returned by this function must be closed when no longer used.
 	NextRun() (string, error)
 
 	// Persists the run status in the store.
@@ -54,6 +55,10 @@ type RunStore interface {
 	// dependencies for the job.
 	// A dependency identifier must be globally unique.
 	GetJobDependencies(jobID string) ([]JobDependency, error)
+
+	// Closes the run corresponding to the identifier.
+	// Post-run operations are done in this function.
+	Close(runID string) error
 }
 
 type Job struct {
@@ -190,6 +195,7 @@ func (w Worker) processRun(rwg *sync.WaitGroup, runID string) {
 	defer rwg.Done()
 
 	status := "CANCELED"
+	defer w.closeRun(runID)
 	defer func() { w.setRunStatus(runID, status) }()
 
 	jobIDs, err := w.rs.GetJobs(runID)
@@ -212,6 +218,12 @@ func (w Worker) processRun(rwg *sync.WaitGroup, runID string) {
 	}
 
 	status = w.processJobs(jobIDs)
+}
+
+func (w Worker) closeRun(runID string) {
+	if err := w.rs.Close(runID); err != nil {
+		log.Printf("Unable to close run %v: %v", runID, err.Error())
+	}
 }
 
 // SetRunStatus update the run status in the run store,

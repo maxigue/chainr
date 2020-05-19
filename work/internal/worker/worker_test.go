@@ -19,7 +19,7 @@ type brokenRunStoreStub struct{}
 func (rs brokenRunStoreStub) NextRun() (string, error) {
 	panic("failed")
 }
-func (rs brokenRunStoreStub) SetRunStatus(runId, status string) error {
+func (rs brokenRunStoreStub) SetRunStatus(runID, status string) error {
 	return nil
 }
 func (rs brokenRunStoreStub) GetJobs(runID string) ([]string, error) {
@@ -33,6 +33,9 @@ func (rs brokenRunStoreStub) SetJobStatus(jobID, status string) error {
 }
 func (rs brokenRunStoreStub) GetJobDependencies(jobID string) ([]JobDependency, error) {
 	return []JobDependency{}, nil
+}
+func (rs brokenRunStoreStub) Close(runID string) error {
+	return nil
 }
 
 type cloudProviderStub struct{}
@@ -124,6 +127,12 @@ func (rs *runStoreDepMock) GetJobDependencies(jobID string) ([]JobDependency, er
 
 	return deps, nil
 }
+func (rs *runStoreDepMock) Close(runID string) error {
+	if runID != "run:abc" {
+		rs.t.Errorf("Close = %v, expected run:abc", runID)
+	}
+	return nil
+}
 
 func TestProcessNextRun(t *testing.T) {
 	Convey("Scenario: process a valid run", t, func() {
@@ -204,6 +213,9 @@ func (rs *runStoreFailureMock) GetJobDependencies(jobID string) ([]JobDependency
 	}
 
 	return deps, nil
+}
+func (rs *runStoreFailureMock) Close(runID string) error {
+	return nil
 }
 
 type cloudProviderFailureStub struct{}
@@ -297,6 +309,9 @@ func (rs *runStoreSkippedMock) GetJobDependencies(jobID string) ([]JobDependency
 
 	return deps, nil
 }
+func (rs *runStoreSkippedMock) Close(runID string) error {
+	return nil
+}
 
 func TestProcessNextRunSkipped(t *testing.T) {
 	Convey("Scenario: process run with skipped jobs", t, func() {
@@ -350,6 +365,9 @@ func (rs *runStoreNotFoundMock) GetJobDependencies(jobID string) ([]JobDependenc
 	return []JobDependency{
 		JobDependency{"job:dep1:run:abc", false},
 	}, nil
+}
+func (rs *runStoreNotFoundMock) Close(runID string) error {
+	return nil
 }
 
 func TestProcessNextRunNotFound(t *testing.T) {
@@ -421,6 +439,9 @@ func (rs *runStoreDepLoopMock) GetJobDependencies(jobID string) ([]JobDependency
 	}
 
 	return deps, nil
+}
+func (rs *runStoreDepLoopMock) Close(runID string) error {
+	return nil
 }
 
 func TestProcessNextRunDepLoop(t *testing.T) {
