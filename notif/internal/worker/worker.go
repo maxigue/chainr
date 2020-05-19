@@ -5,6 +5,7 @@ package worker
 
 import (
 	"log"
+	"time"
 
 	"github.com/Tyrame/chainr/notif/internal/notifier"
 )
@@ -28,15 +29,14 @@ func New() Worker {
 }
 
 // Start launches the worker loop.
-// It stays running as long as there is no internal error while processing
-// the next event.
-func (w Worker) Start() error {
-	var err error = nil
-	for err == nil {
-		err = w.DispatchNextEvent()
+// It runs indefinitely.
+func (w Worker) Start() {
+	for {
+		if err := w.DispatchNextEvent(); err != nil {
+			log.Println(err)
+			time.Sleep(2 * time.Second)
+		}
 	}
-
-	return err
 }
 
 // DispatchNextEvent is a blocking function, listening for a new event,

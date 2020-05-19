@@ -13,5 +13,5 @@ func main() {
 	log.Println("Starting chainr notifier")
 
 	w := worker.New()
-	log.Fatal(w.Start())
+	w.Start()
 }

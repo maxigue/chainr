@@ -27,28 +27,6 @@ func (n brokenNotifierStub) Dispatch(event notifier.Event) error {
 	return errors.New("failed")
 }
 
-type brokenEventStoreStub struct{}
-
-func (es brokenEventStoreStub) NextEvent() (notifier.Event, error) {
-	return notifier.Event{}, errors.New("failed")
-}
-
-func TestStartError(t *testing.T) {
-	Convey("Scenario: the events can not be retrieved", t, func() {
-		Convey("Given the worker can not access the events queue", func() {
-			w := Worker{&brokenEventStoreStub{}, &notifierStub{}}
-
-			Convey("When the worker tries to dispatch the next event", func() {
-				err := w.Start()
-
-				Convey("The worker should stop its loop with an error to avoid spamming", func() {
-					So(err.Error(), ShouldEqual, "failed")
-				})
-			})
-		})
-	})
-}
-
 type eventStoreStub struct{}
 
 func (es eventStoreStub) NextEvent() (notifier.Event, error) {
