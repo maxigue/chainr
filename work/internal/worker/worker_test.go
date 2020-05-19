@@ -17,7 +17,7 @@ import (
 type brokenRunStoreStub struct{}
 
 func (rs brokenRunStoreStub) NextRun() (string, error) {
-	return "", errors.New("failed")
+	panic("failed")
 }
 func (rs brokenRunStoreStub) SetRunStatus(runId, status string) error {
 	return nil
@@ -48,15 +48,14 @@ func (es eventStoreStub) CreateEvent(event Event) error {
 }
 
 func TestStartError(t *testing.T) {
-	Convey("Scenario: the runs can not be retrieved", t, func() {
-		Convey("Given the worker can not access the runs queue", func() {
+	Convey("Scenario: the runs fetching panics", t, func() {
+		Convey("Given a run is scheduled", func() {
 			w := Worker{&brokenRunStoreStub{}, &cloudProviderStub{}, &eventStoreStub{}}
 
-			Convey("When the worker tries to process the next run", func() {
-				err := w.Start()
+			Convey("When the run fetching panics", func() {
+				w.Start()
 
-				Convey("The worker should stop its loop with an error to avoid spamming", func() {
-					So(err.Error(), ShouldEqual, "failed")
+				Convey("The worker should wait for other runs to finish and stop", func() {
 				})
 			})
 		})

@@ -14,5 +14,5 @@ func main() {
 	log.Println("Starting chainr worker")
 
 	w := worker.New()
-	log.Fatal(w.Start())
+	w.Start()
 }

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log"
 	"sync"
+	"time"
 )
 
 type Worker struct {
@@ -152,19 +153,22 @@ func (dm dependencyMap) Status() string {
 }
 
 // Start launches the worker loop.
-// It stays running as long as there is no internal error while processing
-// the next run.
-// In case of internal error, it waits for all running goroutines to finish.
-func (w Worker) Start() error {
+// It runs indefinitely.
+func (w Worker) Start() {
 	var wg sync.WaitGroup
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("Worker was interrupted by a panic:", r)
+			wg.Wait()
+		}
+	}()
 
-	var err error = nil
-	for err == nil {
-		err = w.ProcessNextRun(&wg)
+	for {
+		if err := w.ProcessNextRun(&wg); err != nil {
+			log.Println(err)
+			time.Sleep(2 * time.Second)
+		}
 	}
-
-	wg.Wait()
-	return err
 }
 
 // ProcessNextRun is a blocking function, listening for a new run,

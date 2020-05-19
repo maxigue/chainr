@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-redis/redis/v7"
 )
@@ -38,7 +39,11 @@ func NewRedisClient() redis.UniversalClient {
 	return redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs:      addrs,
 		MasterName: masterName,
-		Password:   password,
-		DB:         db,
+
+		Password: password,
+		DB:       db,
+
+		MaxRetries:      6,
+		MaxRetryBackoff: 10 * time.Second,
 	})
 }
