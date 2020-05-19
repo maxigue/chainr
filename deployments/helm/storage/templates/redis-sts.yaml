@@ -22,30 +22,6 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/managed-by: {{ .Release.Service }}
     spec:
-      initContainers:
-      - name: init-redis
-        image: bash
-        command: ["bash", "-c", "
-          set -ex\n
-          [[ `hostname` =~ -([0-9]+)$ ]] || exit 1\n
-          [[ -f /mnt/conf/redis.conf ]] && exit 0\n
-          ordinal=${BASH_REMATCH[1]}\n
-          # Copy appropriate conf.d files from config-map to emptyDir.\n
-          cp /mnt/config-map/shared.conf /mnt/conf/redis.conf\n
-          # ordinal 0 is the first host\n
-          if [[ $ordinal -eq 0 ]]; then\n
-            cat /mnt/config-map/master.conf >> /mnt/conf/redis.conf\n
-          else\n
-            cat /mnt/config-map/slave.conf >> /mnt/conf/redis.conf\n
-          fi\n
-        "]
-        volumeMounts:
-        - name: data
-          mountPath: /data
-        - name: conf
-          mountPath: /mnt/conf
-        - name: config-map
-          mountPath: /mnt/config-map
       containers:
       - name: {{ include "chainr-redis.fullname" . }}
         command: ["redis-server", "/etc/redis/redis.conf"]
@@ -70,11 +46,9 @@ spec:
             - -c
             - "/usr/local/bin/redis-cli -h $(hostname) ping"
       volumes:
-      - name: config-map
+      - name: conf
         configMap:
           name: {{ include "chainr-redis.fullname" . }}
-      - name: conf
-        emptyDir: {}
   volumeClaimTemplates:
   - metadata:
       name: data
