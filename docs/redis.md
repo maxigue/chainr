@@ -55,3 +55,10 @@ Type can be:
 - SUCCESS: The event references a success.
 - FAILURE: The event references an error.
 ```
+- **workers**: Set containing the workers keys. It is managed by the recycler.
+- **worker:\<name\>**: Hash containing a worker. The hash contains the following fields:
+```
+queue: string: The key of the queue consumed by the worker.
+processQueue: The key of the processing queue filled when the worker takes an item.
+expiry: ISO8601: The expiration date.
+```

@@ -1,0 +1,44 @@
+# Default values for recycle.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 2
+
+image:
+  repository: tyrame/chainr-recycle
+  tag: latest
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Contains space-separated list of redis nodes.
+# In the case of a single redis node, only put the single node address.
+# In the case of failover with sentinel, you can either set the whole list of
+# sentinel hosts, or the headless service to sentinel.
+# If using sentinel, you must also set the redisMasterName.
+# In the case of a redis cluster, put the address of each node, or the headless service.
+redisAddrs: chainr-redis:6379
+
+# This is the name of the redis master, configured in sentinel.
+# When this parameter is set, it will be assumed that redis
+# runs with sentinel.
+redisMaster: ""

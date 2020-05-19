@@ -1,0 +1,36 @@
+name: recycle
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2-beta
+      with:
+        go-version: '^1.14.1'
+    - name: Check formatting
+      run: make check-fmt
+      working-directory: recycle
+    - name: Run unit tests
+      run: make test
+      working-directory: recycle
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build docker image
+      run: make docker-build
+      working-directory: recycle
+    - name: Login to Dockerhub
+      run: echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_LOGIN }} --password-stdin
+    - name: Push docker image
+      run: make docker-push
+      working-directory: recycle

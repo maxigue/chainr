@@ -64,14 +64,14 @@ This project is architectured in micro-services.
 - **sched**: Allows to schedule pipeline runs and get run status.
 - **work**: Worker running pipeline jobs on the kubernetes cluster.
 - **notif**: Supports notification medias, and triggers notifications when events occur.
+- **recycle**: Collects items that were not fully processed by workers (e.g. due to outages), and re-schedules them.
 - **ui**: Serves the UI.
+
+More documentation can be found in the `docs/` directory.
+- [Architecture](docs/architecture.md)
+- [Redis](docs/redis.md)
 
 Message passing and transient persistence is done through redis.
 
 ## Chaos engineering
 A basic chaos monkey is added to ensure everything goes well even when instances are randomly killed. You can run it with `make chaos`. Make sure you are targetting the right namespace before running.
-
-## More documentation
-More documentation can be found in the `docs/` directory.
-- [Architecture](docs/architecture.md)
-- [Redis](docs/redis.md)
