@@ -60,13 +60,15 @@ func (r recycler) rescheduleItems(processQueue string, queue string) error {
 		return err
 	}
 
-	log.Println("Rescheduling items", strings.Join(items, ", "), "on queue", queue)
-	values := make([]interface{}, len(items))
-	for i, v := range items {
-		values[i] = v
-	}
-	if err := r.client.RPush(queue, values...).Err(); err != nil {
-		return err
+	if len(items) > 0 {
+		log.Println("Rescheduling items", strings.Join(items, ", "), "on queue", queue)
+		values := make([]interface{}, len(items))
+		for i, v := range items {
+			values[i] = v
+		}
+		if err := r.client.RPush(queue, values...).Err(); err != nil {
+			return err
+		}
 	}
 
 	log.Println("Deleting process queue", processQueue)
