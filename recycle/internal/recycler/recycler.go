@@ -96,6 +96,6 @@ func Start() {
 		if err := r.Recycle(); err != nil {
 			log.Println("An error occurred while recycling:", err.Error())
 		}
-		time.Sleep(10)
+		time.Sleep(10 * time.Second)
 	}
 }
