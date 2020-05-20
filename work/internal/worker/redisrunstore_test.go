@@ -331,15 +331,15 @@ func TestClose(t *testing.T) {
 	}
 }
 
-type closeClientErrorMock redisClientMock
+type closeClientErrorStub redisClientStub
 
-func (c closeClientErrorMock) LRem(key string, count int64, value interface{}) *redis.IntCmd {
+func (c closeClientErrorStub) LRem(key string, count int64, value interface{}) *redis.IntCmd {
 	return redis.NewIntResult(0, errors.New("LRem failed"))
 }
 
 func TestCloseError(t *testing.T) {
-	rs := RedisRunStore{testInfo, &closeClientErrorMock{t: t}}
-	err := rs.Close("runs:abc")
+	rs := RedisRunStore{testInfo, &closeClientErrorStub{}}
+	err := rs.Close("run:abc")
 	if err.Error() != "LRem failed" {
 		t.Errorf("redis error was not forwarded")
 	}
