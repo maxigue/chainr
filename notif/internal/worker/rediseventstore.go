@@ -1,70 +1,25 @@
 package worker
 
 import (
-	"log"
-	"os"
-	"strconv"
-	"strings"
-	"time"
-
 	"github.com/go-redis/redis/v7"
 
 	"github.com/Tyrame/chainr/notif/internal/notifier"
 )
 
 type RedisEventStore struct {
+	info   Info
 	client redis.Cmdable
 }
 
-func NewRedisEventStore() RedisEventStore {
-	addrs := []string{"chainr-redis:6379"}
-	masterName := ""
-	password := ""
-	db := 0
-	if val, ok := os.LookupEnv("REDIS_ADDR"); ok {
-		addrs = []string{val}
-	}
-	if val, ok := os.LookupEnv("REDIS_ADDRS"); ok {
-		addrs = strings.Split(val, " ")
-	}
-	if val, ok := os.LookupEnv("REDIS_MASTER"); ok {
-		masterName = val
-	}
-	if val, ok := os.LookupEnv("REDIS_PASSWORD"); ok {
-		password = val
-	}
-	if val, ok := os.LookupEnv("REDIS_DB"); ok {
-		d, err := strconv.Atoi(val)
-		if err != nil {
-			log.Println("Invalid REDIS_DB value " + val + ", using default 0")
-			d = 0
-		}
-		db = d
-	}
-
-	client := redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:      addrs,
-		MasterName: masterName,
-
-		Password: password,
-		DB:       db,
-
-		MaxRetries:      6,
-		MaxRetryBackoff: 10 * time.Second,
-	})
-
-	return RedisEventStore{client}
+func NewRedisEventStore(info Info) RedisEventStore {
+	return RedisEventStore{info, NewRedisClient()}
 }
 
-func (rs RedisEventStore) NextEvent() (notifier.Event, error) {
-	eventQueue := "events:notif"
+func (rs RedisEventStore) NextEvent() (string, error) {
+	return rs.client.BRPopLPush(rs.info.Queue, rs.info.ProcessQueue, 0).Result()
+}
 
-	vals, err := rs.client.BRPop(0, eventQueue).Result()
-	if err != nil {
-		return notifier.Event{}, err
-	}
-
-	eventKey := vals[1]
+func (rs RedisEventStore) GetEvent(eventKey string) (notifier.Event, error) {
 	event, err := rs.client.HGetAll(eventKey).Result()
 	if err != nil {
 		return notifier.Event{}, err
@@ -75,4 +30,8 @@ func (rs RedisEventStore) NextEvent() (notifier.Event, error) {
 		Title:   event["title"],
 		Message: event["message"],
 	}, nil
+}
+
+func (rs RedisEventStore) Close(eventKey string) error {
+	return rs.client.LRem(rs.info.ProcessQueue, -1, eventKey).Err()
 }

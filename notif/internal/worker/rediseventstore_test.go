@@ -4,103 +4,60 @@ import (
 	"testing"
 
 	"errors"
-	"os"
 	"time"
 
 	"github.com/go-redis/redis/v7"
 )
 
 func TestNewRedisEventStore(t *testing.T) {
-	es := NewRedisEventStore()
-	client := es.client.(*redis.Client)
-	expected := "Redis<chainr-redis:6379 db:0>"
-	if client.String() != expected {
-		t.Errorf("client = %v, expected %v", client, expected)
-	}
-}
-
-func TestNewRedisEventStoreSingleNode(t *testing.T) {
-	if err := os.Setenv("REDIS_ADDR", "test:1234"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_ADDR")
-	if err := os.Setenv("REDIS_PASSWORD", "passw0rd"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_PASSWORD")
-	if err := os.Setenv("REDIS_DB", "1"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_DB")
-	es := NewRedisEventStore()
-	client := es.client.(*redis.Client)
-
-	expected := "Redis<test:1234 db:1>"
-	if client.String() != expected {
-		t.Errorf("client = %v, expected %v", client, expected)
-	}
-}
-
-func TestNewRedisEventStoreFailover(t *testing.T) {
-	if err := os.Setenv("REDIS_ADDRS", "test:1234 test2:1234"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_ADDRS")
-	if err := os.Setenv("REDIS_MASTER", "test"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_MASTER")
-	es := NewRedisEventStore()
-	client := es.client.(*redis.Client)
-
-	expected := "Redis<FailoverClient db:0>"
-	if client.String() != expected {
-		t.Errorf("client = %v, expected %v", client, expected)
-	}
-}
-
-// In case of error reading the redis database, the default database is used.
-func TestNewRedisEventStoreWithEnvError(t *testing.T) {
-	if err := os.Setenv("REDIS_DB", "test"); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("REDIS_DB")
-	es := NewRedisEventStore()
-	client := es.client.(*redis.Client)
-
-	expected := "Redis<chainr-redis:6379 db:0>"
-	if client.String() != expected {
-		t.Errorf("client = %v, expected %v", client, expected)
-	}
-}
-
-type redisClientMock struct {
-	t *testing.T
-	*redis.Client
-}
-
-type redisClientStub struct {
-	*redis.Client
+	// Test that NewRedisEventStore does not panic.
+	_ = NewRedisEventStore(testInfo)
 }
 
 type nextEventClientMock redisClientMock
 
-func (c nextEventClientMock) BRPop(timeout time.Duration, keys ...string) *redis.StringSliceCmd {
+func (c nextEventClientMock) BRPopLPush(source, destination string, timeout time.Duration) *redis.StringCmd {
 	if timeout != 0 {
-		c.t.Errorf("BRPop should block indefinitely")
+		c.t.Errorf("BRPopLPush should block indefinitely")
 	}
-	if len(keys) != 1 || keys[0] != "events:notif" {
-		c.t.Errorf("BRPop listens on %v, expected events:notif", keys[0])
+	if source != "events:notif" {
+		c.t.Errorf("BRPopLPush listens on %v, expected events:notif", source)
+	}
+	if destination != "events:notifier:xyz" {
+		c.t.Errorf("BRPopLPush listens on %v, expected events:notifier:xyz", destination)
 	}
 
-	vals := []string{
-		"events:notif",
-		"event:abc",
-	}
-	return redis.NewStringSliceResult(vals, nil)
+	return redis.NewStringResult("event:abc", nil)
 }
 
-func (c nextEventClientMock) HGetAll(key string) *redis.StringStringMapCmd {
+func TestNextEvent(t *testing.T) {
+	es := RedisEventStore{testInfo, &nextEventClientMock{t: t}}
+	eventID, err := es.NextEvent()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if eventID != "event:abc" {
+		t.Errorf("eventID = %v, expected event:abc", eventID)
+	}
+}
+
+type nextEventClientErrorStub redisClientStub
+
+func (c nextEventClientErrorStub) BRPopLPush(source, destination string, timeout time.Duration) *redis.StringCmd {
+	return redis.NewStringResult("", errors.New("BRPopLPush failed"))
+}
+
+func TestNextEventError(t *testing.T) {
+	es := RedisEventStore{testInfo, &nextEventClientErrorStub{}}
+	_, err := es.NextEvent()
+	if err.Error() != "BRPopLPush failed" {
+		t.Errorf("redis error was not forwarded")
+	}
+}
+
+type getEventClientMock redisClientMock
+
+func (c getEventClientMock) HGetAll(key string) *redis.StringStringMapCmd {
 	if key != "event:abc" {
 		c.t.Errorf("key = %v, expected event:abc", key)
 	}
@@ -113,12 +70,13 @@ func (c nextEventClientMock) HGetAll(key string) *redis.StringStringMapCmd {
 	return redis.NewStringStringMapResult(vals, nil)
 }
 
-func TestNextEvent(t *testing.T) {
-	es := RedisEventStore{&nextEventClientMock{t: t}}
-	event, err := es.NextEvent()
+func TestGetEvent(t *testing.T) {
+	es := RedisEventStore{testInfo, &getEventClientMock{t: t}}
+	event, err := es.GetEvent("event:abc")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if event.Type != "SUCCESS" {
 		t.Errorf("event.Type = %v, expected SUCCESS", event.Type)
 	}
@@ -130,47 +88,54 @@ func TestNextEvent(t *testing.T) {
 	}
 }
 
-type nextEventClientErrorBRPopStub redisClientStub
+type getEventClientErrorStub redisClientStub
 
-func (c nextEventClientErrorBRPopStub) BRPop(timeout time.Duration, keys ...string) *redis.StringSliceCmd {
-	return redis.NewStringSliceResult([]string{}, errors.New("BRPop failed"))
+func (c getEventClientErrorStub) HGetAll(key string) *redis.StringStringMapCmd {
+	return redis.NewStringStringMapResult(make(map[string]string), errors.New("HGetAll failed"))
 }
 
-func (c nextEventClientErrorBRPopStub) HGetAll(key string) *redis.StringStringMapCmd {
-	vals := map[string]string{
-		"type":    "SUCCESS",
-		"title":   "t",
-		"message": "m",
-	}
-	return redis.NewStringStringMapResult(vals, nil)
-}
-
-func TestNextEventErrorBRPop(t *testing.T) {
-	es := RedisEventStore{&nextEventClientErrorBRPopStub{}}
-	_, err := es.NextEvent()
-	if err.Error() != "BRPop failed" {
+func TestGetEventError(t *testing.T) {
+	es := RedisEventStore{testInfo, &getEventClientErrorStub{}}
+	_, err := es.GetEvent("event:abc")
+	if err.Error() != "HGetAll failed" {
 		t.Errorf("redis error was not forwarded")
 	}
 }
 
-type nextEventClientErrorHGetAllStub redisClientStub
+type closeClientMock redisClientMock
 
-func (c nextEventClientErrorHGetAllStub) BRPop(timeout time.Duration, keys ...string) *redis.StringSliceCmd {
-	vals := []string{
-		"events:notif",
-		"event:abc",
+func (c closeClientMock) LRem(key string, count int64, value interface{}) *redis.IntCmd {
+	if key != "events:notifier:xyz" {
+		c.t.Errorf("key = %v, expected events:notifier:xyz", key)
 	}
-	return redis.NewStringSliceResult(vals, nil)
+	if count != -1 {
+		c.t.Errorf("count = %v, expected -1 to remove only oldest element", count)
+	}
+	if value != "event:abc" {
+		c.t.Errorf("value = %v, expected event:abc", value)
+	}
+
+	return redis.NewIntResult(1, nil)
 }
 
-func (c nextEventClientErrorHGetAllStub) HGetAll(key string) *redis.StringStringMapCmd {
-	return redis.NewStringStringMapResult(make(map[string]string), errors.New("HGetAll failed"))
+func TestClose(t *testing.T) {
+	es := RedisEventStore{testInfo, &closeClientMock{t: t}}
+	err := es.Close("event:abc")
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
-func TestNextEventErrorHGetAll(t *testing.T) {
-	es := RedisEventStore{&nextEventClientErrorHGetAllStub{}}
-	_, err := es.NextEvent()
-	if err.Error() != "HGetAll failed" {
+type closeClientErrorStub redisClientStub
+
+func (c closeClientErrorStub) LRem(key string, count int64, value interface{}) *redis.IntCmd {
+	return redis.NewIntResult(0, errors.New("LRem failed"))
+}
+
+func TestCloseError(t *testing.T) {
+	es := RedisEventStore{testInfo, &closeClientErrorStub{}}
+	err := es.Close("event:abc")
+	if err.Error() != "LRem failed" {
 		t.Errorf("redis error was not forwarded")
 	}
 }
