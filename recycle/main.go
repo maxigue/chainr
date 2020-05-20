@@ -6,13 +6,11 @@ package main
 
 import (
 	"log"
-	"time"
+
+	"github.com/Tyrame/chainr/recycle/internal/recycler"
 )
 
 func main() {
 	log.Println("Starting chainr recycler")
-
-	for {
-		time.Sleep(1 * time.Second)
-	}
+	recycler.Start()
 }
