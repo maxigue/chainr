@@ -11,7 +11,7 @@ import (
 
 func TestNewRedisRunStore(t *testing.T) {
 	// Test that NewRedisRunStore does not panic.
-	_ = NewRedisRunStore()
+	_ = NewRedisRunStore(testInfo)
 }
 
 type nextRunClientMock redisClientMock
@@ -31,7 +31,7 @@ func (c nextRunClientMock) BRPopLPush(source, destination string, timeout time.D
 }
 
 func TestNextRun(t *testing.T) {
-	rs := RedisRunStore{&nextRunClientMock{t: t}, "runs:worker:xyz"}
+	rs := RedisRunStore{testInfo, &nextRunClientMock{t: t}}
 	runID, err := rs.NextRun()
 	if err != nil {
 		t.Fatal(err)
@@ -48,7 +48,7 @@ func (c nextRunClientErrorMock) BRPopLPush(source, destination string, timeout t
 }
 
 func TestNextRunError(t *testing.T) {
-	rs := RedisRunStore{&nextRunClientErrorMock{t: t}, "runs:worker:xyz"}
+	rs := RedisRunStore{testInfo, &nextRunClientErrorMock{t: t}}
 	_, err := rs.NextRun()
 	if err.Error() != "BRPopLPush failed" {
 		t.Errorf("redis error was not forwarded")
@@ -72,7 +72,7 @@ func (c setRunStatusClientMock) HSet(key string, values ...interface{}) *redis.I
 }
 
 func TestSetRunStatus(t *testing.T) {
-	rs := RedisRunStore{client: &setRunStatusClientMock{t: t}}
+	rs := RedisRunStore{testInfo, &setRunStatusClientMock{t: t}}
 	err := rs.SetRunStatus("run:abc", "RUNNING")
 	if err != nil {
 		t.Fatal(err)
@@ -86,7 +86,7 @@ func (c setRunStatusClientErrorMock) HSet(key string, values ...interface{}) *re
 }
 
 func TestSetRunStatusError(t *testing.T) {
-	rs := RedisRunStore{client: &setRunStatusClientErrorMock{t: t}}
+	rs := RedisRunStore{testInfo, &setRunStatusClientErrorMock{t: t}}
 	err := rs.SetRunStatus("run:abc", "RUNNING")
 	if err.Error() != "HSet failed" {
 		t.Errorf("redis error was not forwarded")
@@ -108,7 +108,7 @@ func (c getJobsClientMock) LRange(key string, start, stop int64) *redis.StringSl
 }
 
 func TestGetJobs(t *testing.T) {
-	rs := RedisRunStore{client: &getJobsClientMock{t: t}}
+	rs := RedisRunStore{testInfo, &getJobsClientMock{t: t}}
 	jobIDs, err := rs.GetJobs("run:abc")
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func (c getJobsClientErrorMock) LRange(key string, start, stop int64) *redis.Str
 }
 
 func TestGetJobsError(t *testing.T) {
-	rs := RedisRunStore{client: &getJobsClientErrorMock{t: t}}
+	rs := RedisRunStore{testInfo, &getJobsClientErrorMock{t: t}}
 	_, err := rs.GetJobs("run:abc")
 	if err.Error() != "SMembers failed" {
 		t.Errorf("redis error was not forwarded")
@@ -152,7 +152,7 @@ func (c getJobClientMock) HGetAll(key string) *redis.StringStringMapCmd {
 }
 
 func TestGetJob(t *testing.T) {
-	rs := RedisRunStore{client: &getJobClientMock{t: t}}
+	rs := RedisRunStore{testInfo, &getJobClientMock{t: t}}
 	job, err := rs.GetJob("job:job1:run:abc")
 	if err != nil {
 		t.Fatal(err)
@@ -175,7 +175,7 @@ func (c getJobClientErrorMock) HGetAll(key string) *redis.StringStringMapCmd {
 }
 
 func TestGetJobError(t *testing.T) {
-	rs := RedisRunStore{client: &getJobClientErrorMock{t: t}}
+	rs := RedisRunStore{testInfo, &getJobClientErrorMock{t: t}}
 	_, err := rs.GetJob("job:job1:run:abc")
 	if err.Error() != "HGetAll failed" {
 		t.Errorf("redis error was not forwarded")
@@ -199,7 +199,7 @@ func (c setJobStatusClientMock) HSet(key string, values ...interface{}) *redis.I
 }
 
 func TestSetJobStatus(t *testing.T) {
-	rs := RedisRunStore{client: &setJobStatusClientMock{t: t}}
+	rs := RedisRunStore{testInfo, &setJobStatusClientMock{t: t}}
 	err := rs.SetJobStatus("job:job1:run:abc", "RUNNING")
 	if err != nil {
 		t.Fatal(err)
@@ -213,7 +213,7 @@ func (c setJobStatusClientErrorMock) HSet(key string, values ...interface{}) *re
 }
 
 func TestSetJobStatusError(t *testing.T) {
-	rs := RedisRunStore{client: &setJobStatusClientErrorMock{t: t}}
+	rs := RedisRunStore{testInfo, &setJobStatusClientErrorMock{t: t}}
 	err := rs.SetJobStatus("job:job1:run:abc", "RUNNING")
 	if err.Error() != "HSet failed" {
 		t.Errorf("redis error was not forwarded")
@@ -254,7 +254,7 @@ func (c getJobDependenciesClientMock) HGetAll(key string) *redis.StringStringMap
 }
 
 func TestGetJobDependencies(t *testing.T) {
-	rs := RedisRunStore{client: &getJobDependenciesClientMock{t: t}}
+	rs := RedisRunStore{testInfo, &getJobDependenciesClientMock{t: t}}
 	deps, err := rs.GetJobDependencies("job:job1:run:abc")
 	if err != nil {
 		t.Fatal(err)
@@ -283,7 +283,7 @@ func (c getJobDependenciesClientErrorSMembersMock) HGetAll(key string) *redis.St
 }
 
 func TestGetJobDependenciesErrorSMembers(t *testing.T) {
-	rs := RedisRunStore{client: &getJobDependenciesClientErrorSMembersMock{t: t}}
+	rs := RedisRunStore{testInfo, &getJobDependenciesClientErrorSMembersMock{t: t}}
 	_, err := rs.GetJobDependencies("job:job1:run:abc")
 	if err.Error() != "SMembers failed" {
 		t.Errorf("redis error was not forwarded")
@@ -300,7 +300,7 @@ func (c getJobDependenciesClientErrorHGetAllMock) HGetAll(key string) *redis.Str
 }
 
 func TestGetJobDependenciesErrorHGetAll(t *testing.T) {
-	rs := RedisRunStore{client: &getJobDependenciesClientErrorHGetAllMock{t: t}}
+	rs := RedisRunStore{testInfo, &getJobDependenciesClientErrorHGetAllMock{t: t}}
 	_, err := rs.GetJobDependencies("job:job1:run:abc")
 	if err.Error() != "HGetAll failed" {
 		t.Errorf("redis error was not forwarded")
@@ -324,7 +324,7 @@ func (c closeClientMock) LRem(key string, count int64, value interface{}) *redis
 }
 
 func TestClose(t *testing.T) {
-	rs := RedisRunStore{&closeClientMock{t: t}, "runs:worker:xyz"}
+	rs := RedisRunStore{testInfo, &closeClientMock{t: t}}
 	err := rs.Close("run:abc")
 	if err != nil {
 		t.Fatal(err)
@@ -338,7 +338,7 @@ func (c closeClientErrorMock) LRem(key string, count int64, value interface{}) *
 }
 
 func TestCloseError(t *testing.T) {
-	rs := RedisRunStore{&closeClientErrorMock{t: t}, "runs:worker:xyz"}
+	rs := RedisRunStore{testInfo, &closeClientErrorMock{t: t}}
 	err := rs.Close("runs:abc")
 	if err.Error() != "LRem failed" {
 		t.Errorf("redis error was not forwarded")

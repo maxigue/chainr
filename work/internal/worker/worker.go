@@ -12,9 +12,10 @@ import (
 )
 
 type Worker struct {
-	rs RunStore
-	cp CloudProvider
-	es EventStore
+	rs       RunStore
+	cp       CloudProvider
+	es       EventStore
+	recycler Recycler
 }
 
 type RunStore interface {
@@ -90,11 +91,19 @@ type Event struct {
 	Message string
 }
 
+type Recycler interface {
+	// Start synchronizing with the recycler.
+	// As the synchronization is a loop, it must be called in a goroutine.
+	StartSync()
+}
+
 func New() Worker {
+	info := NewInfo()
 	return Worker{
-		NewRedisRunStore(),
+		NewRedisRunStore(info),
 		NewK8SCloudProvider(),
 		NewRedisEventStore(),
+		NewRecycler(info),
 	}
 }
 
@@ -159,7 +168,10 @@ func (dm dependencyMap) Status() string {
 
 // Start launches the worker loop.
 // It runs indefinitely.
+// Upon starting, it synchronizes with the recycler.
 func (w Worker) Start() {
+	go w.recycler.StartSync()
+
 	var wg sync.WaitGroup
 	defer func() {
 		if r := recover(); r != nil {
