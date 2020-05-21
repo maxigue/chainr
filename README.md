@@ -74,4 +74,4 @@ More documentation can be found in the `docs/` directory.
 Message passing and transient persistence is done through redis.
 
 ## Chaos engineering
-A basic chaos monkey is added to ensure everything goes well even when instances are randomly killed. You can run it with `make chaos`. Make sure you are targetting the right namespace before running.
+A basic chaos monkey is added to ensure everything goes well even when instances are randomly killed. You can run it with `make chaos`. Make sure you are targeting the right namespace before running.
